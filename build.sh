@@ -93,12 +93,14 @@ if [ "$VARIANT" != "stock" ] && [ -z "$ROOT" ]; then
     echo " 2) Sukisu"
     echo " 3) ReSukiSU"
     echo " 4) MamboSU"
-    read -p "Enter choice [1-4] (default 1): " _c
-    case "${_c:-1}" in 2) ROOT="sukisu" ;; 3) ROOT="resukisu" ;; 4) ROOT="mambosu" ;; *) ROOT="ksu-next" ;; esac
+    echo " 5) APatch (KernelPatch)"
+    echo " 6) FolkPatch (KernelPatch)"
+    read -p "Enter choice [1-6] (default 1): " _c
+    case "${_c:-1}" in 2) ROOT="sukisu" ;; 3) ROOT="resukisu" ;; 4) ROOT="mambosu" ;; 5) ROOT="apatch" ;; 6) ROOT="folkpatch" ;; *) ROOT="ksu-next" ;; esac
 fi
 
-# 5. KPM (only for sukisu/resukisu)
-KPM_SUPPORTED_ROOTS="sukisu resukisu"
+# 5. KPM (only for sukisu/resukisu/apatch/folkpatch)
+KPM_SUPPORTED_ROOTS="sukisu resukisu apatch folkpatch"
 if [ "$VARIANT" != "stock" ] && echo "$KPM_SUPPORTED_ROOTS" | grep -qw "$ROOT"; then
     if [ -z "$KPM" ]; then
         echo "=========================================="
@@ -166,6 +168,8 @@ case "$ROOT" in
     sukisu)   ROOT_REPO="https://github.com/sukisu-ultra/sukisu-ultra.git"; REPO_NAME="sukisu-ultra"; BRANCH="main" ;;
     resukisu) ROOT_REPO="https://github.com/ReSukiSU/ReSukiSU.git"; REPO_NAME="ReSukiSU"; BRANCH="main" ;;
     mambosu)  ROOT_REPO="https://github.com/RapliVx/KernelSU.git"; REPO_NAME="MamboSU"; BRANCH="master" ;;
+    apatch)   REPO_NAME="APatch" ;;
+    folkpatch) REPO_NAME="FolkPatch" ;;
     *)        ROOT_REPO="https://github.com/KernelSU-Next/KernelSU-Next.git"; REPO_NAME="KernelSU-Next"; BRANCH="dev"; ROOT="ksu-next" ;;
 esac
 
@@ -205,6 +209,13 @@ if [ "$VARIANT" == "stock" ]; then
     mkdir -p "$KERNEL_DIR/drivers/kernelsu"
     touch "$KERNEL_DIR/drivers/kernelsu/Kconfig"
     touch "$KERNEL_DIR/drivers/kernelsu/Makefile"
+elif [ "$ROOT" == "apatch" ] || [ "$ROOT" == "folkpatch" ]; then
+    echo "[+] Using $REPO_NAME (binary patcher) — creating dummy KernelSU module"
+    mkdir -p "$KERNEL_DIR/drivers/kernelsu"
+    touch "$KERNEL_DIR/drivers/kernelsu/Kconfig"
+    touch "$KERNEL_DIR/drivers/kernelsu/Makefile"
+    # Force KPM for APatch/FolkPatch
+    KPM="on"
 else
     mkdir -p "$MODULES_DIR"
     if [ ! -d "$MODULES_DIR/$REPO_NAME" ]; then
@@ -253,8 +264,7 @@ else
         fi
 
         # Always run fixup — repairs partial patch failures and adds missing hooks
-        echo "[+] Running SUSFS compatibility fixup ($ROOT)..."
-        bash "$KERNEL_DIR/ksu_susfs_fixup.sh" "$MODULES_DIR/$REPO_NAME/kernel" "$ROOT"
+        # (Moved to after root module preparation)
     fi
 
     # Some forks (e.g. SukiSU-Ultra) keep UAPI headers outside kernel/.
@@ -298,23 +308,56 @@ else
     ln -sf "$MODULES_DIR/$REPO_NAME/kernel" "$KERNEL_DIR/drivers/kernelsu"
 fi
 
+# Run SUSFS fixup if needed (after root module is symlinked/created)
+if [ "$VARIANT" == "susfs" ] && [ "$VARIANT" != "stock" ]; then
+    echo "[+] Running SUSFS compatibility fixup ($ROOT)..."
+    bash "$KERNEL_DIR/ksu_susfs_fixup.sh" "$KERNEL_DIR/drivers/kernelsu" "$ROOT"
+fi
+
 # ==========================================
 # KPM Tools Setup (kptools + kpimg)
 # ==========================================
 if [ "$KPM" == "on" ]; then
     KPM_TOOLS_DIR="$MODULES_DIR/kpm_tools"
-    KPM_RELEASE_BASE="https://github.com/SukiSU-Ultra/SukiSU_KernelPatch_patch/releases/latest/download"
     mkdir -p "$KPM_TOOLS_DIR"
 
+    if [ "$ROOT" == "apatch" ] || [ "$ROOT" == "folkpatch" ]; then
+        if [ "$ROOT" == "folkpatch" ]; then
+            KPM_RELEASE_BASE="https://github.com/LyraVoid/KernelPatch/releases/download/0.13.1"
+            KPM_SOURCE_NAME="LyraVoid/KernelPatch (FolkPatch fork) v0.13.1"
+            KPIMG_NAME="kpimg-android"
+        else
+            KPM_RELEASE_BASE="https://github.com/bmax121/KernelPatch/releases/latest/download"
+            KPM_SOURCE_NAME="official KernelPatch"
+            KPIMG_NAME="kpimg-android"
+        fi
+    else
+        KPM_RELEASE_BASE="https://github.com/SukiSU-Ultra/SukiSU_KernelPatch_patch/releases/latest/download"
+        KPIMG_NAME="kpimg"
+        KPM_SOURCE_NAME="SukiSU-Ultra/SukiSU_KernelPatch_patch"
+    fi
+
     KPTOOLS_BIN="$KPM_TOOLS_DIR/kptools-linux"
-    KPIMG_BIN="$KPM_TOOLS_DIR/kpimg"
+    KPIMG_BIN="$KPM_TOOLS_DIR/$KPIMG_NAME"
 
     if [ ! -f "$KPTOOLS_BIN" ] || [ ! -f "$KPIMG_BIN" ]; then
-        echo "[+] Downloading KPM tools from SukiSU_KernelPatch_patch releases..."
-        curl -LSs -o "$KPTOOLS_BIN" "$KPM_RELEASE_BASE/kptools-linux" || \
+        echo "[+] Downloading KPM tools from $KPM_SOURCE_NAME..."
+        
+        # Download kptools (use stable 0.13.1 for LyraVoid as latest/C18 lacks linux binary)
+        if [ "$ROOT" == "folkpatch" ]; then
+            KPTOOLS_URL="https://github.com/LyraVoid/KernelPatch/releases/download/0.13.1/kptools-linux"
+        else
+            KPTOOLS_URL="$KPM_RELEASE_BASE/kptools-linux"
+        fi
+
+        curl -LSs -o "$KPTOOLS_BIN" "$KPTOOLS_URL" || \
             { echo "[-] Failed to download kptools-linux!"; exit 1; }
-        curl -LSs -o "$KPIMG_BIN" "$KPM_RELEASE_BASE/kpimg" || \
-            { echo "[-] Failed to download kpimg!"; exit 1; }
+        
+        # Download kpimg
+        curl -LSs -o "$KPIMG_BIN" "$KPM_RELEASE_BASE/$KPIMG_NAME" || \
+            { echo "[-] Failed to download $KPIMG_NAME!"; exit 1; }
+        
+        chmod +x "$KPTOOLS_BIN"
     else
         echo "[+] KPM tools already cached"
     fi
@@ -423,12 +466,22 @@ make O="$OUT_DIR" CC=clang LLVM=1 LLVM_IAS=1 KCFLAGS="$KERNEL_KCFLAGS" LDFLAGS="
 case "$VARIANT" in
     stock) scripts/config --file "$OUT_DIR/.config" -d CONFIG_KSU -d CONFIG_KSU_SUSFS -d CONFIG_KPM ;;
     root)  scripts/config --file "$OUT_DIR/.config" -e CONFIG_KSU -d CONFIG_KSU_SUSFS ;;
-    susfs) scripts/config --file "$OUT_DIR/.config" -e CONFIG_KSU -e CONFIG_KSU_SUSFS -e CONFIG_KSU_SUSFS_SUS_MAP ;;
+    susfs) 
+        scripts/config --file "$OUT_DIR/.config" -e CONFIG_KSU_SUSFS -e CONFIG_KSU_SUSFS_SUS_MAP
+        if [[ "$ROOT" == *"ksu"* ]] || [[ "$ROOT" == *"sukisu"* ]] || [[ "$ROOT" == "mambosu" ]]; then
+            scripts/config --file "$OUT_DIR/.config" -e CONFIG_KSU
+        else
+            scripts/config --file "$OUT_DIR/.config" -d CONFIG_KSU
+        fi
+        ;;
 esac
 
-# KPM config
-if [ "$KPM" == "on" ]; then
-    scripts/config --file "$OUT_DIR/.config" -e CONFIG_KPM
+# Root/KPM config
+if [ "$ROOT" == "apatch" ] || [ "$ROOT" == "folkpatch" ]; then
+    scripts/config --file "$OUT_DIR/.config" -d CONFIG_KSU
+    scripts/config --file "$OUT_DIR/.config" -e CONFIG_KPM -e CONFIG_KALLSYMS -e CONFIG_KALLSYMS_ALL
+elif [ "$KPM" == "on" ]; then
+    scripts/config --file "$OUT_DIR/.config" -e CONFIG_KPM -e CONFIG_KALLSYMS -e CONFIG_KALLSYMS_ALL
 else
     scripts/config --file "$OUT_DIR/.config" -d CONFIG_KPM
 fi
