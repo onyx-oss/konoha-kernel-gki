@@ -2441,8 +2441,8 @@ void audit_log_end(struct audit_buffer *ab)
 		/* queue the netlink packet and poke the kauditd thread */
 		skb_queue_tail(&audit_queue, skb);
 		wake_up_interruptible(&kauditd_wait);
-	} else
-		audit_log_lost("rate limit exceeded");
+	} // else
+		// audit_log_lost("rate limit exceeded");
 
 	audit_buffer_free(ab);
 }
