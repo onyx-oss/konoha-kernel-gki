@@ -5555,6 +5555,7 @@ struct regulator_override_entry {
 struct device_regulator_profile {
 	const char *compat;     /* DT Compatibility string */
 	const char *codename;   /* Miro, Onyx, etc. */
+	const char *cmdline_match; /* Match against saved_command_line */
 	const struct regulator_override_entry *overrides;
 	size_t num_entries;
 };
@@ -5580,13 +5581,13 @@ static const struct regulator_override_entry onyx_reg_entries[] = {
 /* Main Lookup Table - New devices can be easily added here */
 static const struct device_regulator_profile device_profiles[] = {
 	{
-		.compat = "xiaomi,onyx", 
+		.compat = "qcom,tuna",
 		.codename = "Poco F7 (Onyx)",
 		.overrides = onyx_reg_entries,
 		.num_entries = ARRAY_SIZE(onyx_reg_entries),
 	},
 	{
-		.compat = "xiaomi,miro", 
+		.compat = "xiaomi,miro",
 		.codename = "Poco F7 Ultra (Miro)",
 		.overrides = NULL, /* NULL means Miro is safe / uses stock DTB */
 		.num_entries = 0,
@@ -5642,9 +5643,10 @@ regulator_register(struct device *dev,
 	 */
 	if (!profile_checked) {
 		for (i = 0; i < ARRAY_SIZE(device_profiles); i++) {
-			if (of_machine_is_compatible(device_profiles[i].compat)) {
+			if (of_machine_is_compatible(device_profiles[i].compat) ||
+			    (device_profiles[i].cmdline_match && saved_command_line &&
+			     strstr(saved_command_line, device_profiles[i].cmdline_match))) {
 				active_profile = &device_profiles[i];
-				pr_info("Regulator: Detected board profile: %s\n", active_profile->codename);
 				break;
 			}
 		}
