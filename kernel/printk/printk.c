@@ -2263,6 +2263,18 @@ int vprintk_store(int facility, int level,
 	reserve_size = vsnprintf(&prefix_buf[0], sizeof(prefix_buf), fmt, args2) + 1;
 	va_end(args2);
 
+	/* 
+	 * Custom spam-filter: Drop evaluated strings that are completely empty
+	 * or contain just a loglevel prefix, saving ringbuffer space and avoiding
+	 * empty timestamp logs in dmesg.
+	 */
+	if ((reserve_size <= 3) && 
+	    (prefix_buf[0] == '\0' || prefix_buf[0] == '\n' || prefix_buf[0] == ' ' || 
+	    (prefix_buf[0] == '\x01' && prefix_buf[2] == '\0'))) {
+		ret = 0;
+		goto out;
+	}
+
 	if (reserve_size > PRINTKRB_RECORD_MAX)
 		reserve_size = PRINTKRB_RECORD_MAX;
 
