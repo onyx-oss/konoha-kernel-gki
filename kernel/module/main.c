@@ -3149,6 +3149,83 @@ static void kgsl_live_patch(struct module *mod)
 	 return err;
  }
  
+static void spam_log_live_patch(struct module *mod)
+{
+	struct module_memory *mem;
+	u8 *data;
+	unsigned int size, i;
+	const char *patterns[] = {
+		"\x01" "7buffer underrun",
+		"\x01" "6[sih_haptic]",
+		"\x01" "6[Awinic]",
+		"\x01" "6imported_mem_show",
+		"\x01" "6[MI_TP_I]",
+		"[mca_strategy_fg]",
+		"[mca_strategy_buckchg]",
+		"[mca_smem]",
+		"[mca_smart_charge]",
+		"[mca_charger_thermal]",
+		"\x01" "3[%02d:%02d",
+		"\x01" "7[mi_disp:",
+		"%s[mi_disp:",
+		"\x01" "6receive blocking event",
+		"\x01" "6batt_thermal temp",
+		"[%02d:%02d:%02d:%03ld-E][%5d]",
+		"[%02d:%02d:%02d:%03ld-I][%5d]",
+		"[%02d:%02d:%02d:%03ld-D][%5d]",
+		NULL
+	};
+	int p;
+
+	if (!mod || !mod->name)
+		return;
+
+	if (strcmp(mod->name, "si_haptic") != 0 &&
+	    strcmp(mod->name, "aw8697_haptic") != 0 &&
+	    strcmp(mod->name, "aw882xx_dlkm") != 0 &&
+	    strcmp(mod->name, "msm_kgsl") != 0 &&
+	    strcmp(mod->name, "xiaomi_touch") != 0 &&
+	    strcmp(mod->name, "mca_strategy_fg_comp") != 0 &&
+	    strcmp(mod->name, "mca_strategy_buckchg") != 0 &&
+	    strcmp(mod->name, "mca_qcom_smem") != 0 &&
+	    strcmp(mod->name, "mca_smart_charge") != 0 &&
+	    strcmp(mod->name, "mca_charger_thermal") != 0 &&
+	    strcmp(mod->name, "nt38771_touch") != 0 &&
+	    strcmp(mod->name, "msm_drm") != 0 &&
+	    strcmp(mod->name, "mca_event") != 0 &&
+	    strcmp(mod->name, "mca_log") != 0 &&
+	    strcmp(mod->name, "mca_business_battery_comp") != 0)
+		return;
+
+	mem = &mod->mem[MOD_RODATA];
+	if (mem->base && mem->size) {
+		data = mem->base;
+		size = mem->size;
+		for (p = 0; patterns[p]; p++) {
+			int len = strlen(patterns[p]);
+			for (i = 0; i < size - len; i++) {
+				if (memcmp(&data[i], patterns[p], len) == 0) {
+					data[i] = '\0';
+				}
+			}
+		}
+	}
+
+	mem = &mod->mem[MOD_DATA];
+	if (mem->base && mem->size) {
+		data = mem->base;
+		size = mem->size;
+		for (p = 0; patterns[p]; p++) {
+			int len = strlen(patterns[p]);
+			for (i = 0; i < size - len; i++) {
+				if (memcmp(&data[i], patterns[p], len) == 0) {
+					data[i] = '\0';
+				}
+			}
+		}
+	}
+}
+
  static int complete_formation(struct module *mod, struct load_info *info)
  {
 	 int err;
@@ -3164,6 +3241,8 @@ static void kgsl_live_patch(struct module *mod)
 	 module_bug_finalize(info->hdr, info->sechdrs, mod);
 	 module_cfi_finalize(info->hdr, info->sechdrs, mod);
  
+	 spam_log_live_patch(mod);
+
 	 module_enable_ro(mod, false);
 	 module_enable_nx(mod);
 	 module_enable_x(mod);
