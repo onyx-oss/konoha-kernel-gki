@@ -95,8 +95,9 @@ if [ "$VARIANT" != "stock" ] && [ -z "$ROOT" ]; then
     echo " 4) MamboSU"
     echo " 5) APatch (KernelPatch)"
     echo " 6) FolkPatch (KernelPatch)"
+    echo " 6) KernelSU (KernelPatch)"
     read -p "Enter choice [1-6] (default 1): " _c
-    case "${_c:-1}" in 2) ROOT="sukisu" ;; 3) ROOT="resukisu" ;; 4) ROOT="mambosu" ;; 5) ROOT="apatch" ;; 6) ROOT="folkpatch" ;; *) ROOT="ksu-next" ;; esac
+    case "${_c:-1}" in 2) ROOT="sukisu" ;; 3) ROOT="resukisu" ;; 4) ROOT="mambosu" ;; 5) ROOT="apatch" ;; 6) ROOT="folkpatch" ;; 7) ROOT="kernelsu" ;; *) ROOT="ksu-next" ;; esac
 fi
 
 # 5. KPM (only for sukisu/resukisu/apatch/folkpatch)
@@ -170,6 +171,7 @@ case "$ROOT" in
     mambosu)  ROOT_REPO="https://github.com/RapliVx/KernelSU.git"; REPO_NAME="MamboSU"; BRANCH="master" ;;
     apatch)   REPO_NAME="APatch" ;;
     folkpatch) REPO_NAME="FolkPatch" ;;
+    kernelsu)  ROOT_REPO="https://github.com/tiann/KernelSU.git"; REPO_NAME="KernelSU"; BRANCH="main" ;;
     *)        ROOT_REPO="https://github.com/KernelSU-Next/KernelSU-Next.git"; REPO_NAME="KernelSU-Next"; BRANCH="dev"; ROOT="ksu-next" ;;
 esac
 

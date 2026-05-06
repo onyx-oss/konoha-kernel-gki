@@ -5,7 +5,7 @@
 # Surgically repairs SUSFS integration after 10_enable_susfs_for_ksu.patch
 # which may partially fail on different KernelSU forks.
 #
-# Supported managers: KernelSU-Next, Sukisu-Ultra, MamboSU
+# Supported managers: KernelSU-Next, Sukisu-Ultra, MamboSU, KernelSU
 # (ReSukiSU has native SUSFS — should be skipped upstream in build.sh)
 #
 # Usage: ksu_susfs_fixup.sh <path-to-ksu/kernel> [manager-name]
@@ -38,6 +38,7 @@ detect_manager() {
             mambosu)   echo "mambosu" ;;
             apatch)    echo "apatch" ;;
             folkpatch) echo "folkpatch" ;;
+            kernelsu) echo "kernelsu" ;;
             *)         echo "unknown" ;;
         esac
         return
@@ -51,6 +52,7 @@ detect_manager() {
             *sukisu*|*SukiSU*|*Sukisu*)      echo "sukisu"; return ;;
             *ReSukiSU*|*resukisu*)           echo "resukisu"; return ;;
             *RapliVx*|*MamboSU*|*mambosu*)   echo "mambosu"; return ;;
+            *tiann*|*KernelSU*|*kernelsu*)   echo "kernelsu"; return ;;
         esac
     fi
 
