@@ -9,7 +9,7 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  # JOB 1: Build varian Stock, KernelSU Next, Sukisu, Resukisu, Mambosu (Total: 208 Jobs)
+  # JOB 1: Build varian Stock, KernelSU Next, Sukisu, Resukisu, Mambosu, KernelSU (Total: 208 Jobs)
   build-kernel:
     name: "${{ matrix.variant == 'stock' && format('{0}-{1}', matrix.variant, matrix.hz.name) || format('{0}-{1}-{2}', matrix.variant, matrix.root, matrix.hz.name) }}${{ matrix.kpm == 'on' && '-kpm' || '' }}${{ matrix.hardened == 'on' && '-hardened' || '' }}${{ matrix.bypasscharging == 'on' && '-bypasscharging' || '' }}"
     runs-on: ubuntu-24.04
@@ -222,7 +222,8 @@ jobs:
                   if root == 'mambosu' and 'mambosu' not in fl: continue
                   if root == 'apatch' and 'apatch' not in fl: continue
                   if root == 'folkpatch' and 'folkpatch' not in fl: continue
-                  if root == 'none' and any(x in fl for x in ['next', 'sukisu', 'resukisu', 'mambosu', 'apatch', 'folkpatch']): continue
+                  if root == 'kernelsu' and 'kernelsu' not in fl: continue
+                  if root == 'none' and any(x in fl for x in ['next', 'sukisu', 'resukisu', 'mambosu', 'apatch', 'folkpatch', 'kernelsu']): continue
                   
                   if hz == 'ultra-performance' and 'ultra' not in fl: continue
                   if hz == 'performance' and ('performance' not in fl or 'ultra' in fl): continue
@@ -259,6 +260,7 @@ jobs:
               ('Mambosu', 'root', 'mambosu', False, False),
               ('APatch', 'root', 'apatch', True, False),
               ('FolkPatch', 'root', 'folkpatch', True, False),
+              ('KernelSU', 'root', 'folkpatch', True, False),
           ]
           susfs = [
               ('KernelSU Next', 'susfs', 'ksu-next', False, False),
@@ -269,6 +271,7 @@ jobs:
               ('Mambosu', 'susfs', 'mambosu', False, False),
               ('APatch', 'susfs', 'apatch', True, False),
               ('FolkPatch', 'susfs', 'folkpatch', True, False),
+              ('KernelSU', 'susfs', 'folkpatch', True, False),
           ]
           hard = [
               ('Stock', 'stock', 'none', False, True),
@@ -280,6 +283,7 @@ jobs:
               ('Mambosu', 'root', 'mambosu', False, True),
               ('APatch', 'root', 'apatch', True, True),
               ('FolkPatch', 'root', 'folkpatch', True, True),
+              ('KernelSU', 'root', 'folkpatch', True, True),
           ]
           susfs_hard = [
               ('KernelSU Next', 'susfs', 'ksu-next', False, True),
@@ -290,6 +294,7 @@ jobs:
               ('Mambosu', 'susfs', 'mambosu', False, True),
               ('APatch', 'susfs', 'apatch', True, True),
               ('FolkPatch', 'susfs', 'folkpatch', True, True),
+              ('KernelSU', 'susfs', 'folkpatch', True, True),
           ]
           
           with open('release_body.md', 'w') as f:
