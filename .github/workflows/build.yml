@@ -260,7 +260,7 @@ jobs:
               ('Mambosu', 'root', 'mambosu', False, False),
               ('APatch', 'root', 'apatch', True, False),
               ('FolkPatch', 'root', 'folkpatch', True, False),
-              ('KernelSU', 'root', 'folkpatch', True, False),
+              ('KernelSU', 'root', 'kernelsu', True, False),
           ]
           susfs = [
               ('KernelSU Next', 'susfs', 'ksu-next', False, False),
@@ -271,7 +271,7 @@ jobs:
               ('Mambosu', 'susfs', 'mambosu', False, False),
               ('APatch', 'susfs', 'apatch', True, False),
               ('FolkPatch', 'susfs', 'folkpatch', True, False),
-              ('KernelSU', 'susfs', 'folkpatch', True, False),
+              ('KernelSU', 'susfs', 'kernelsu', True, False),
           ]
           hard = [
               ('Stock', 'stock', 'none', False, True),
@@ -283,7 +283,7 @@ jobs:
               ('Mambosu', 'root', 'mambosu', False, True),
               ('APatch', 'root', 'apatch', True, True),
               ('FolkPatch', 'root', 'folkpatch', True, True),
-              ('KernelSU', 'root', 'folkpatch', True, True),
+              ('KernelSU', 'root', 'kernelsu', True, True),
           ]
           susfs_hard = [
               ('KernelSU Next', 'susfs', 'ksu-next', False, True),
@@ -294,7 +294,7 @@ jobs:
               ('Mambosu', 'susfs', 'mambosu', False, True),
               ('APatch', 'susfs', 'apatch', True, True),
               ('FolkPatch', 'susfs', 'folkpatch', True, True),
-              ('KernelSU', 'susfs', 'folkpatch', True, True),
+              ('KernelSU', 'susfs', 'kernelsu', True, True),
           ]
           
           with open('release_body.md', 'w') as f:
