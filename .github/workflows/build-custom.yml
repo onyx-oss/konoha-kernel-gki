@@ -34,6 +34,10 @@ on:
           - mambosu
           - apatch
           - folkpatch
+          - ksu-official
+          - mksu
+          - kow-ksu
+          - wild-ksu
         default: resukisu
       kpm:
         description: 'Kernel Patch Module (KPM)'
