@@ -9,7 +9,7 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  # JOB 1: Build varian Stock, KernelSU Next, Sukisu, Resukisu, Mambosu (Total: 208 Jobs)
+  # JOB 1: Build varian Stock, KernelSU Next, Official, MKSU, KowSU, Wild KSU, dll.
   build-kernel:
     name: "${{ matrix.variant == 'stock' && format('{0}-{1}', matrix.variant, matrix.hz.name) || format('{0}-{1}-{2}', matrix.variant, matrix.root, matrix.hz.name) }}${{ matrix.kpm == 'on' && '-kpm' || '' }}${{ matrix.hardened == 'on' && '-hardened' || '' }}${{ matrix.bypasscharging == 'on' && '-bypasscharging' || '' }}"
     runs-on: ubuntu-24.04
@@ -21,7 +21,7 @@ jobs:
           - { id: 500, name: performance }
           - { id: 1000, name: ultra-performance }
         variant: [stock, root, susfs]
-        root: [none, ksu-next, sukisu, resukisu, mambosu]
+        root: [none, ksu-next, sukisu, resukisu, mambosu, ksu-official, mksu, kow-ksu, wild-ksu]
         kpm: [off, on]
         hardened: [off, on]
         bypasscharging: [off, on]
@@ -34,23 +34,31 @@ jobs:
             root: resukisu
           - variant: stock
             root: mambosu
+          - variant: stock
+            root: ksu-official
+          - variant: stock
+            root: mksu
+          - variant: stock
+            root: kow-ksu
+          - variant: stock
+            root: wild-ksu
           - variant: root
             root: none
           - variant: susfs
             root: none
           - variant: stock
             kpm: on
-          - variant: root
-            root: ksu-next
+          - root: ksu-next
             kpm: on
-          - variant: root
-            root: mambosu
+          - root: mambosu
             kpm: on
-          - variant: susfs
-            root: ksu-next
+          - root: ksu-official
             kpm: on
-          - variant: susfs
-            root: mambosu
+          - root: mksu
+            kpm: on
+          - root: kow-ksu
+            kpm: on
+          - root: wild-ksu
             kpm: on
       fail-fast: false
 
@@ -107,7 +115,7 @@ jobs:
           path: gki-clo/Kono-Ha-Release
           retention-days: 7
 
-  # JOB 2: Build khusus APatch dan FolkPatch (Total: 64 Jobs, menghindari limit matrix 256 job github)
+  # JOB 2: Tetap untuk APatch dan FolkPatch
   build-kernel-patcher:
     name: "${{ format('{0}-{1}-{2}-kpm', matrix.variant, matrix.root, matrix.hz.name) }}${{ matrix.hardened == 'on' && '-hardened' || '' }}${{ matrix.bypasscharging == 'on' && '-bypasscharging' || '' }}"
     runs-on: ubuntu-24.04
@@ -120,7 +128,7 @@ jobs:
           - { id: 1000, name: ultra-performance }
         variant: [root, susfs]
         root: [apatch, folkpatch]
-        kpm: [on] # APatch/Folkpatch selalu butuh KPM
+        kpm: [on]
         hardened: [off, on]
         bypasscharging: [off, on]
       fail-fast: false
@@ -217,12 +225,16 @@ jobs:
                   if variant not in fl: continue
                   
                   if root == 'ksu-next' and 'next' not in fl: continue
+                  if root == 'ksu-official' and 'official' not in fl: continue
+                  if root == 'mksu' and 'mksu' not in fl: continue
+                  if root == 'kow-ksu' and 'kow' not in fl: continue
+                  if root == 'wild-ksu' and 'wild' not in fl: continue
                   if root == 'sukisu' and ('sukisu' not in fl or 'resukisu' in fl): continue
                   if root == 'resukisu' and 'resukisu' not in fl: continue
                   if root == 'mambosu' and 'mambosu' not in fl: continue
                   if root == 'apatch' and 'apatch' not in fl: continue
                   if root == 'folkpatch' and 'folkpatch' not in fl: continue
-                  if root == 'none' and any(x in fl for x in ['next', 'sukisu', 'resukisu', 'mambosu', 'apatch', 'folkpatch']): continue
+                  if root == 'none' and any(x in fl for x in ['next', 'official', 'mksu', 'kow', 'wild', 'sukisu', 'resukisu', 'mambosu', 'apatch', 'folkpatch']): continue
                   
                   if hz == 'ultra-performance' and 'ultra' not in fl: continue
                   if hz == 'performance' and ('performance' not in fl or 'ultra' in fl): continue
@@ -252,6 +264,10 @@ jobs:
           std = [
               ('Stock', 'stock', 'none', False, False),
               ('KernelSU Next', 'root', 'ksu-next', False, False),
+              ('KernelSU Official', 'root', 'ksu-official', False, False),
+              ('MKSU', 'root', 'mksu', False, False),
+              ('KowSU', 'root', 'kow-ksu', False, False),
+              ('Wild KSU', 'root', 'wild-ksu', False, False),
               ('Sukisu', 'root', 'sukisu', False, False),
               ('Sukisu + KPM', 'root', 'sukisu', True, False),
               ('Resukisu', 'root', 'resukisu', False, False),
@@ -262,6 +278,10 @@ jobs:
           ]
           susfs = [
               ('KernelSU Next', 'susfs', 'ksu-next', False, False),
+              ('KernelSU Official', 'susfs', 'ksu-official', False, False),
+              ('MKSU', 'susfs', 'mksu', False, False),
+              ('KowSU', 'susfs', 'kow-ksu', False, False),
+              ('Wild KSU', 'susfs', 'wild-ksu', False, False),
               ('Sukisu', 'susfs', 'sukisu', False, False),
               ('Sukisu + KPM', 'susfs', 'sukisu', True, False),
               ('Resukisu', 'susfs', 'resukisu', False, False),
@@ -273,6 +293,10 @@ jobs:
           hard = [
               ('Stock', 'stock', 'none', False, True),
               ('KernelSU Next', 'root', 'ksu-next', False, True),
+              ('KernelSU Official', 'root', 'ksu-official', False, True),
+              ('MKSU', 'root', 'mksu', False, True),
+              ('KowSU', 'root', 'kow-ksu', False, True),
+              ('Wild KSU', 'root', 'wild-ksu', False, True),
               ('Sukisu', 'root', 'sukisu', False, True),
               ('Sukisu + KPM', 'root', 'sukisu', True, True),
               ('Resukisu', 'root', 'resukisu', False, True),
@@ -283,6 +307,10 @@ jobs:
           ]
           susfs_hard = [
               ('KernelSU Next', 'susfs', 'ksu-next', False, True),
+              ('KernelSU Official', 'susfs', 'ksu-official', False, True),
+              ('MKSU', 'susfs', 'mksu', False, True),
+              ('KowSU', 'susfs', 'kow-ksu', False, True),
+              ('Wild KSU', 'susfs', 'wild-ksu', False, True),
               ('Sukisu', 'susfs', 'sukisu', False, True),
               ('Sukisu + KPM', 'susfs', 'sukisu', True, True),
               ('Resukisu', 'susfs', 'resukisu', False, True),
