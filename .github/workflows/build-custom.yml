@@ -34,6 +34,10 @@ on:
           - mambosu
           - apatch
           - folkpatch
+          - ksu-official
+          - mksu
+          - kow-ksu
+          - wild-ksu
         default: resukisu
       kpm:
         description: 'Kernel Patch Module (KPM)'
@@ -105,20 +109,11 @@ jobs:
           if [ "$INPUT_BYPASS" == "on" ]; then BUILD_NAME="${BUILD_NAME}-bypasscharging"; fi
           
           echo "BUILD_NAME=$BUILD_NAME" >> $GITHUB_ENV
-          
-      - name: Rename Job
-        run: echo "Mengubah nama proses untuk Build $BUILD_NAME"
 
       - name: Create Swap
         run: |
           SWAPFILE="/mnt/build_swapfile"
-          while true; do
-            if sudo fallocate -l 10G $SWAPFILE || sudo dd if=/dev/zero of=$SWAPFILE bs=1M count=10240 status=progress; then
-              break
-            else
-              sleep 5
-            fi
-          done
+          sudo fallocate -l 10G $SWAPFILE || sudo dd if=/dev/zero of=$SWAPFILE bs=1M count=10240 status=progress
           sudo chmod 600 $SWAPFILE && sudo mkswap $SWAPFILE && sudo swapon $SWAPFILE
 
       - uses: actions/checkout@v4
