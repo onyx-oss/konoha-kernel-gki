@@ -9,7 +9,7 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  # JOB 1: Build varian Stock, KernelSU Next, Official, MKSU, KowSU, Wild KSU, dll.
+  # JOB 1: Build varian Stock, KernelSU Next, Sukisu, Resukisu, Mambosu
   build-kernel:
     name: "${{ matrix.variant == 'stock' && format('{0}-{1}', matrix.variant, matrix.hz.name) || format('{0}-{1}-{2}', matrix.variant, matrix.root, matrix.hz.name) }}${{ matrix.kpm == 'on' && '-kpm' || '' }}${{ matrix.hardened == 'on' && '-hardened' || '' }}${{ matrix.bypasscharging == 'on' && '-bypasscharging' || '' }}"
     runs-on: ubuntu-24.04
@@ -26,7 +26,6 @@ jobs:
         hardened: [off, on]
         bypasscharging: [off, on]
         exclude:
-          # Stock variant should not have any root solution
           - variant: stock
             root: ksu-next
           - variant: stock
@@ -43,12 +42,10 @@ jobs:
             root: kow-ksu
           - variant: stock
             root: wild-ksu
-          # Root/SUSFS variants must have a root solution
           - variant: root
             root: none
           - variant: susfs
             root: none
-          # KPM is only supported on specific roots (SukiSU, ReSukiSU)
           - kpm: on
             root: ksu-next
           - kpm: on
@@ -61,8 +58,8 @@ jobs:
             root: kow-ksu
           - kpm: on
             root: wild-ksu
-          # Exclude combinations that are redundant or too heavy for CI if necessary
-          # (Anda bisa menambahkan limitasi lain di sini)
+          - kpm: on
+            variant: stock
 
     steps:
       - name: Create Swap
@@ -88,7 +85,7 @@ jobs:
       - name: Setup AnyKernel3
         run: |
           cd gki-clo
-          git clone https://github.com/osm0sis/AnyKernel3.git anykernel
+          [ ! -d "anykernel" ] && git clone https://github.com/osm0sis/AnyKernel3.git anykernel || true
 
       - name: Build Kernel
         env:
@@ -97,9 +94,10 @@ jobs:
           cd gki-clo
           chmod +x build.sh
           
-          # Logic for LTO and KPM patching
           LTO_VAL="full"
-          [ "${{ matrix.kpm }}" == "on" ] && LTO_VAL="thin"
+          if [ "${{ matrix.kpm }}" == "on" ] || [ "${{ matrix.root }}" == "apatch" ] || [ "${{ matrix.root }}" == "folkpatch" ]; then
+            LTO_VAL="thin"
+          fi
           
           KPM_PATCH="on"
           [ "${{ matrix.root }}" == "resukisu" ] && KPM_PATCH="off"
@@ -154,22 +152,10 @@ jobs:
               for name, variant, root, kpm, susfs in variants:
                   row = f"| {name} |"
                   for hz in ['powersave', 'balance', 'performance', 'ultra-performance']:
-                      suffix = ""
-                      if variant == 'stock':
-                          base = f"stock-{hz}"
-                      else:
-                          base = f"{variant}-{root}-{hz}"
-                      
-                      if kpm: base += "-kpm"
-                      if title.find('Hardened') != -1: base += "-hardened"
-                      if bypass: base += "-bypasscharging"
-                      
-                      # File naming check (simplified for logic)
                       row += " ✅ |"
                   table += row + "\n"
               return table + "\n"
 
-          # Variant definitions
           std = [
               ('Stock', 'stock', 'none', False, False),
               ('KSU Next', 'root', 'ksu-next', False, False),
@@ -182,6 +168,8 @@ jobs:
               ('Resukisu', 'root', 'resukisu', False, False),
               ('Resukisu + KPM', 'root', 'resukisu', True, False),
               ('Mambosu', 'root', 'mambosu', False, False),
+              ('APatch', 'root', 'apatch', True, False),
+              ('FolkPatch', 'root', 'folkpatch', True, False),
           ]
           
           susfs = [
@@ -195,12 +183,32 @@ jobs:
               ('Resukisu', 'susfs', 'resukisu', False, True),
               ('Resukisu + KPM', 'susfs', 'resukisu', True, True),
               ('Mambosu', 'susfs', 'mambosu', False, True),
+              ('APatch', 'susfs', 'apatch', True, True),
+              ('FolkPatch', 'susfs', 'folkpatch', True, True),
           ]
 
+          hard = [(n, 'root', r, k, s) for n, v, r, k, s in std if v != 'stock']
+          susfs_hard = [(n, 'susfs', r, k, s) for n, v, r, k, s in susfs]
+
           with open('release_body.md', 'w') as f:
-              f.write('## 🚀 Konoha Kernel Automated Build\n\n')
-              f.write(f'Build based on commit: `{sha}`\n\n')
-              f.write(gen_table('Standard Builds', std, False))
-              f.write(gen_table('SUSFS ඞ Builds', susfs, False))
-              f.write('---\n')
-              f.write('
+              f.write('Automated kernel build.\n')
+              f.write(f'Commit: {sha}\n\n')
+              f.write(gen_table('Standard / Root Builds', std, False))
+              f.write(gen_table('SUSFS ඞ', susfs, False))
+              f.write(gen_table('Hardened', hard, False))
+              f.write(gen_table('SUSFS ඞ + Hardened', susfs_hard, False))
+              
+              f.write('---\n\n## ⚡ Bypass Charging Variants (MCA Override)\n\n')
+              f.write(gen_table('Standard / Root Builds ⚡', std, True))
+              f.write(gen_table('SUSFS ඞ ⚡', susfs, True))
+              f.write(gen_table('Hardened ⚡', hard, True))
+              f.write(gen_table('SUSFS ඞ + Hardened ⚡', susfs_hard, True))
+          EOF
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}-${{ github.sha }}
+          name: Konoha Kernel Build ${{ github.run_number }}
+          body_path: release_body.md
+          files: release_assets/*
