@@ -7,7 +7,7 @@ set -e
 #   hz=100|250|1000       Timer frequency (default: 250)
 #   hardened=on|off       CPU mitigations (default: off)
 #   variant=stock|root|susfs  Build variant (default: stock)
-#   root=ksu-next|sukisu|resukisu|mambosu  Root solution (default: ksu-next)
+#   root=ksu-next|sukisu|resukisu|mambosu|ksu-official|mksu|kow-ksu|wild-ksu  Root solution (default: ksu-next)
 #   kpm=on|off            KPM support (default: off, sukisu/resukisu only)
 #   kpm_superkey=STRING   KPM SuperKey (required if kpm=on)
 #   kpm_patch=on|off      Inject kpimg with kptools (default: on; resukisu defaults off)
@@ -95,8 +95,23 @@ if [ "$VARIANT" != "stock" ] && [ -z "$ROOT" ]; then
     echo " 4) MamboSU"
     echo " 5) APatch (KernelPatch)"
     echo " 6) FolkPatch (KernelPatch)"
-    read -p "Enter choice [1-6] (default 1): " _c
-    case "${_c:-1}" in 2) ROOT="sukisu" ;; 3) ROOT="resukisu" ;; 4) ROOT="mambosu" ;; 5) ROOT="apatch" ;; 6) ROOT="folkpatch" ;; *) ROOT="ksu-next" ;; esac
+    echo " 7) KernelSU Official"
+    echo " 8) MKSU"
+    echo " 9) KowSU"
+    echo " 10) Wild KSU"
+    read -p "Enter choice [1-10] (default 1): " _c
+    case "${_c:-1}" in 
+        2) ROOT="sukisu" ;; 
+        3) ROOT="resukisu" ;; 
+        4) ROOT="mambosu" ;; 
+        5) ROOT="apatch" ;; 
+        6) ROOT="folkpatch" ;; 
+        7) ROOT="ksu-official" ;;
+        8) ROOT="mksu" ;;
+        9) ROOT="kow-ksu" ;;
+        10) ROOT="wild-ksu" ;;
+        *) ROOT="ksu-next" ;; 
+    esac
 fi
 
 # 5. KPM (only for sukisu/resukisu/apatch/folkpatch)
@@ -168,6 +183,10 @@ case "$ROOT" in
     sukisu)   ROOT_REPO="https://github.com/sukisu-ultra/sukisu-ultra.git"; REPO_NAME="sukisu-ultra"; BRANCH="main" ;;
     resukisu) ROOT_REPO="https://github.com/ReSukiSU/ReSukiSU.git"; REPO_NAME="ReSukiSU"; BRANCH="main" ;;
     mambosu)  ROOT_REPO="https://github.com/RapliVx/KernelSU.git"; REPO_NAME="MamboSU"; BRANCH="master" ;;
+    ksu-official) ROOT_REPO="https://github.com/tiann/KernelSU.git"; REPO_NAME="KernelSU"; BRANCH="main" ;;
+    mksu)      ROOT_REPO="https://github.com/mksu-org/MKSU.git"; REPO_NAME="MKSU"; BRANCH="main" ;;
+    kow-ksu)   ROOT_REPO="https://github.com/Kow-Mate/KernelSU.git"; REPO_NAME="KowSU"; BRANCH="main" ;;
+    wild-ksu)  ROOT_REPO="https://github.com/Wild-C/KernelSU.git"; REPO_NAME="Wild-KSU"; BRANCH="main" ;;
     apatch)   REPO_NAME="APatch" ;;
     folkpatch) REPO_NAME="FolkPatch" ;;
     *)        ROOT_REPO="https://github.com/KernelSU-Next/KernelSU-Next.git"; REPO_NAME="KernelSU-Next"; BRANCH="dev"; ROOT="ksu-next" ;;
