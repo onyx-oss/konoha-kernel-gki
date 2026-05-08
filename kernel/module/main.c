@@ -2643,11 +2643,13 @@ static void mca_live_patch(struct module *mod)
 		return;
 	}
 
-	/* Filter non-MCA target modules to save processing time */
+	/* Filter target modules to save processing time */
 	if (strcmp(mod->name, "mca_smart_charge") != 0 &&
 		strcmp(mod->name, "mca_strategy_fg_comp") != 0 &&
 		strcmp(mod->name, "mca_strategy_quickchg") != 0 &&
-		strcmp(mod->name, "mca_strategy_buckchg") != 0) {
+		strcmp(mod->name, "mca_strategy_buckchg") != 0 &&
+		strcmp(mod->name, "perfmgr") != 0 &&
+		strcmp(mod->name, "xiaomi_touch") != 0) {
 		return;
 	}
 
@@ -2658,7 +2660,7 @@ static void mca_live_patch(struct module *mod)
 		return;
 
 	if (strcmp(mod->name, "mca_smart_charge") == 0) {
-		bool patched_turbo = false, patched_night = false, patched_timeout = false;
+		bool patched_turbo = false, patched_night = false, patched_timeout = false, patched_bypass = false;
 		for (i = 0; i < (text_size / 4) - 6; i++) {
 			/* sc_game_turbo: b.lt -> b to original b.le target */
 			if (!patched_turbo &&
@@ -2685,10 +2687,28 @@ static void mca_live_patch(struct module *mod)
 				aarch64_insn_patch_text_nosync((void *)&text[i+5], 0x14000000 | (imm19 & 0x03ffffff));
 				patched_timeout = true;
 			}
-			if (patched_turbo && patched_night && patched_timeout)
+			/* sc_bypass_status: force to 1 (Super Turbo Enable) */
+			if (!patched_bypass && text[i] == 0x39594008 && text[i+1] == 0x34000088) {
+				aarch64_insn_patch_text_nosync((void *)&text[i], 0x52800020);
+				aarch64_insn_patch_text_nosync((void *)&text[i+1], 0xd65f03c0);
+				patched_bypass = true;
+			}
+			if (patched_turbo && patched_night && patched_timeout && patched_bypass)
 				break;
 		}
-		pr_info("MCA bypass: mca_smart_charge dynamically patched (turbo:%d night:%d timeout:%d)\n", patched_turbo, patched_night, patched_timeout);
+		pr_info("MCA bypass: mca_smart_charge dynamically patched (turbo:%d night:%d timeout:%d bypass:%d)\n", patched_turbo, patched_night, patched_timeout, patched_bypass);
+	}
+	else if (strcmp(mod->name, "perfmgr") == 0) {
+		bool patched_enable = false;
+		for (i = 0; i < (text_size / 4) - 2; i++) {
+			/* perfmgr_is_enable: force to 1 (Always Active) */
+			if (!patched_enable && text[i] == 0xd503233f && text[i+1] == 0x90000008 && text[i+2] == 0x39400100) {
+				aarch64_insn_patch_text_nosync((void *)&text[i], 0x52800020);
+				aarch64_insn_patch_text_nosync((void *)&text[i+1], 0xd65f03c0);
+				patched_enable = true;
+			}
+		}
+		pr_info("Performance bypass: perfmgr dynamically patched (enable:%d)\n", patched_enable);
 	}
 	else if (strcmp(mod->name, "mca_strategy_fg_comp") == 0) {
 		bool patched_low = false, patched_high = false;
@@ -2913,7 +2933,116 @@ static void kgsl_live_patch(struct module *mod)
 #endif /* CONFIG_ARM64 */
 #endif /* CONFIG_MCA_BYPASS */
 
- /*
+/* ========================================================================
+ * Touch Interpolation & Game Turbo Exploit Hooks
+ * Forces THP_SMOOTH_EN (Gesture Tracking), Game Mode, and 240Hz Hardware Rate.
+ * Uses a safe 'Hard Lock' strategy to maintain 500Hz without kernel panics.
+ * ======================================================================== */
+static int pre_xiaomi_touch_set_mode_value(struct kprobe *p, struct pt_regs *regs)
+{
+	void *ptr = (void *)regs->regs[0];
+	int8_t touch_id = -1;
+	int16_t mode_id = 0;
+	int32_t value = 0;
+
+	if (ptr) {
+		if (get_kernel_nofault(touch_id, (int8_t *)ptr) == 0 &&
+		    get_kernel_nofault(mode_id, (int16_t *)(ptr + 2)) == 0 &&
+		    get_kernel_nofault(value, (int32_t *)(ptr + 8)) == 0) {
+			pr_info("XiaomiTouchTrace: [Mode-Set] TouchID: %d, ModeID: %d, VAL: %d\n", touch_id, mode_id, value);
+		}
+	}
+	return 0;
+}
+
+static struct kprobe kp_xiaomi_touch_set_mode_value = {
+	.symbol_name = "xiaomi_touch_set_mode_value",
+	.pre_handler = pre_xiaomi_touch_set_mode_value,
+};
+
+static int pre_nvt_set_extend_custom_cmd(struct kprobe *p, struct pt_regs *regs)
+{
+	int cmd = (int)regs->regs[0];
+	int val = (int)regs->regs[1];
+
+	/* Log meaningful commands */
+	if (cmd != 1) pr_info("XiaomiTouchTrace: [HW-In] CMD: %d, VAL: %d\n", cmd, val);
+
+	/* Hard Lock direct calls to prevent system from overriding us */
+	if (cmd == 10 || cmd == 8 || cmd == 11) {
+		if (val < 240) {
+			regs->regs[1] = 240;
+			pr_info("XiaomiTouchTrace: [HW-Lock] Forced CMD %d to 240\n", cmd);
+		}
+	}
+	if (cmd == 31 || cmd == 15) {
+		if (val == 0) {
+			regs->regs[1] = 1;
+			pr_info("XiaomiTouchTrace: [HW-Lock] Forced CMD %d to 1\n", cmd);
+		}
+	}
+
+	return 0;
+}
+
+static struct kprobe kp_nvt_set_extend_custom_cmd = {
+	.symbol_name = "nvt_set_extend_custom_cmd",
+	.pre_handler = pre_nvt_set_extend_custom_cmd,
+};
+
+static void touch_live_patch(struct module *mod)
+{
+	static bool touch_kp_1 = false, touch_kp_2 = false;
+	int i;
+	u32 *text;
+	unsigned int text_size;
+
+	if (!mod || !mod->name)
+		return;
+
+	text = mod->mem[MOD_TEXT].base;
+	text_size = mod->mem[MOD_TEXT].size;
+
+	if (strcmp(mod->name, "xiaomi_touch") == 0) {
+		int patched_ioctl = 0, patched_mode = 0;
+		for (i = 0; i < (text_size / 4) - 4; i++) {
+			/* xiaomi_touch_dev_ioctl: bypass magic 'T' (0x5400) */
+			if (text[i] == 0x528a8008 && text[i+1] == 0x12181c29 && text[i+2] == 0x6b08013f) {
+				aarch64_insn_patch_text_nosync((void *)&text[i+3], 0xd503201f); /* nop b.ne 5574 */
+				patched_ioctl++;
+			}
+			/* xiaomi_touch_mode: bypass size 1032 (0x408) check */
+			if (text[i] == 0x7110203f && (text[i+2] & 0xff00001f) == 0x54000001) {
+				aarch64_insn_patch_text_nosync((void *)&text[i+2], 0xd503201f); /* nop b.ne 8ce4 */
+				patched_mode++;
+			}
+			/* xiaomi_touch_mode: bypass security check (cmp x9, x10) */
+			if (text[i] == 0xeb0a013f && (text[i+1] & 0xff00001f) == 0x54000008) {
+				aarch64_insn_patch_text_nosync((void *)&text[i+1], 0xd503201f); /* nop b.hi 909c */
+				patched_mode++;
+			}
+			/* xiaomi_touch_mode: The Ultimate Elegant ID Bypass. 
+			   Replaces 'b.ne 8cf8' with 'mov w0, w8'.
+			   This syncs the client_id with the requested touch_id.
+			   Script uses touch_id 0 -> w0 becomes 0 (Main Display).
+			   Fingerprint uses touch_id 1 -> w0 becomes 1 (FOD).
+			   Fingerprint works perfectly and script bypasses EPERM! */
+			if (text[i] == 0x39404680 && text[i+1] == 0x394003e8 && text[i+2] == 0x6b08001f) {
+				aarch64_insn_patch_text_nosync((void *)&text[i+3], 0x2a0803e0); /* mov w0, w8 */
+				patched_mode++;
+			}
+		}
+		pr_info("Touch exploit: xiaomi_touch smartly patched (ioctl:%d mode:%d)\n", patched_ioctl, patched_mode);
+
+		if (!touch_kp_1 && register_kprobe(&kp_xiaomi_touch_set_mode_value) == 0)
+			touch_kp_1 = true;
+	}
+	else if (strcmp(mod->name, "nt38771_touch") == 0) {
+		if (!touch_kp_2 && register_kprobe(&kp_nvt_set_extend_custom_cmd) == 0)
+			touch_kp_2 = true;
+		pr_info("Touch exploit: nt38771_touch kprobes registered.\n");
+	}
+} /*
   * This is where the real work happens.
   *
   * Keep it uninlined to provide a reliable breakpoint target, e.g. for the gdb
@@ -2939,6 +3068,7 @@ static void kgsl_live_patch(struct module *mod)
  #if defined(CONFIG_ARM64) && defined(CONFIG_MCA_BYPASS)
 	mca_live_patch(mod);
 	kgsl_live_patch(mod);
+	touch_live_patch(mod);
 #endif
 
 	 freeinit = kmalloc(sizeof(*freeinit), GFP_KERNEL);
