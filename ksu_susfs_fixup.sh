@@ -82,6 +82,21 @@ if [ "$MANAGER" = "resukisu" ]; then
         sed -i 's/static void susfs_run_sus_path_loop(void)/void susfs_run_sus_path_loop(void)/g' "$(dirname "$0")/fs/susfs.c"
         echo "[SUSFS-Fixup] fs/susfs.c: Made susfs_run_sus_path_loop non-static"
     fi
+    # [FIX] selinux_hide.c — remove undefined context_struct_compute_av_fn extern
+    # The kernel's context_struct_compute_av in security/selinux/ss/services.c is
+    # static and not exported. selinux_hide.c has its own local copy, so remove
+    # the extern reference and always use the local implementation.
+    SELINUX_HIDE_C="$KSU_KERNEL/feature/selinux_hide.c"
+    if [ -f "$SELINUX_HIDE_C" ] && grep -q "context_struct_compute_av_fn" "$SELINUX_HIDE_C" 2>/dev/null; then
+        # Remove the extern declaration
+        sed -i '/^extern void context_struct_compute_av_fn/,/struct extended_perms \*xperms);/d' "$SELINUX_HIDE_C"
+        # Replace conditional call with direct call to local function
+        sed -i '/if (context_struct_compute_av_fn) {/{
+            N;N;N;N
+            s/if (context_struct_compute_av_fn) {\n.*context_struct_compute_av_fn.*\n.*} else {\n.*context_struct_compute_av(.*\n.*}/context_struct_compute_av(policydb, scontext, tcontext, tclass, avd, NULL);/
+        }' "$SELINUX_HIDE_C"
+        echo "[SUSFS-Fixup] selinux_hide.c: Removed undefined context_struct_compute_av_fn"
+    fi
     exit 0
 fi
 
@@ -113,6 +128,7 @@ KSU_H="$KSU_KERNEL/include/ksu.h"
 RULES_C="$KSU_KERNEL/selinux/rules.c"
 SELINUX_H="$KSU_KERNEL/selinux/selinux.h"
 SULOG_EVENT_H="$KSU_KERNEL/sulog/event.h"
+SULOG_EVENT_C="$KSU_KERNEL/sulog/event.c"
 KERNEL_UMOUNT_C="$KSU_KERNEL/feature/kernel_umount.c"
 
 echo "[SUSFS-Fixup] Starting compatibility fixups..."
@@ -469,7 +485,7 @@ fix_execveat_handlers() {
 
     # Guard old ksu_handle_execve_sucompat with #ifndef CONFIG_KSU_SUSFS
     # (it uses ksu_syscall_table from syscall_hook_manager.c which is not compiled)
-    if [ "$MANAGER" != "ksu-next" ] && grep -q "ksu_handle_execve_sucompat" "$SUCOMPAT_C" 2>/dev/null && \
+    if [ "$MANAGER" != "ksu-next" ] && [ "$MANAGER" != "mambosu" ] && grep -q "ksu_handle_execve_sucompat" "$SUCOMPAT_C" 2>/dev/null && \
        grep -q "ksu_syscall_table" "$SUCOMPAT_C" 2>/dev/null && \
        ! grep -q '#ifndef CONFIG_KSU_SUSFS' "$SUCOMPAT_C" 2>/dev/null; then
 
@@ -557,7 +573,7 @@ fix_ksu_next_kbuild() {
     # KernelSU-Next needs them. Restore if missing.
     local need_restore=0
 
-    for obj in "hook/lsm_hook.o" "hook/syscall_event_bridge.o" "hook/syscall_hook_manager.o" "hook/tp_marker.o"; do
+    for obj in "hook/lsm_hook.o" "hook/syscall_event_bridge.o" "hook/syscall_hook_manager.o" "hook/tp_marker.o" "infra/symbol_resolver.o"; do
         local src_file="$KSU_KERNEL/$(echo $obj | sed 's/\.o$/.c/')"
         if [ -f "$src_file" ] && ! grep -q "$obj" "$KBUILD" 2>/dev/null; then
             need_restore=1
@@ -578,6 +594,9 @@ fix_ksu_next_kbuild() {
         fi
         if ! grep -q "hook/tp_marker.o" "$KBUILD" 2>/dev/null && [ -f "$KSU_KERNEL/hook/tp_marker.c" ]; then
             sed -i '/hook\/setuid_hook.o/a kernelsu-objs += hook/tp_marker.o' "$KBUILD"
+        fi
+        if ! grep -q "infra/symbol_resolver.o" "$KBUILD" 2>/dev/null && [ -f "$KSU_KERNEL/infra/symbol_resolver.c" ]; then
+            sed -i '/hook\/setuid_hook.o/a kernelsu-objs += infra/symbol_resolver.o' "$KBUILD"
         fi
         # Arch-specific patch memory and syscall hook
         if ! grep -q "hook/arm64/patch_memory.o" "$KBUILD" 2>/dev/null && [ -d "$KSU_KERNEL/hook/arm64" ]; then
@@ -835,13 +854,90 @@ fix_ksu_next_susfs_umount() {
 }
 
 # ==========================================================================
+# [SHARED] selinux_hide.c — remove undefined context_struct_compute_av_fn
+# ==========================================================================
+# The kernel's context_struct_compute_av in security/selinux/ss/services.c is
+# static and not exported. selinux_hide.c has its own local copy, so remove
+# the extern reference and always use the local implementation.
+SELINUX_HIDE_C="$KSU_KERNEL/feature/selinux_hide.c"
+if [ -f "$SELINUX_HIDE_C" ] && grep -q "context_struct_compute_av_fn\|security_dump_masked_av_fn" "$SELINUX_HIDE_C" 2>/dev/null; then
+    # Remove the extern declarations (multi-line)
+    sed -i '/^extern void context_struct_compute_av_fn/,/struct extended_perms \*xperms);/d' "$SELINUX_HIDE_C"
+    sed -i '/^extern void security_dump_masked_av_fn/,/const char \*reason);/d' "$SELINUX_HIDE_C"
+    # Replace conditional context_struct_compute_av_fn call with direct call
+    sed -i '/context_struct_compute_av_fn/,+4{
+        /if (context_struct_compute_av_fn)/c\    context_struct_compute_av(policydb, scontext, tcontext, tclass, avd, NULL);
+        /context_struct_compute_av_fn(policydb/d
+        /} else {/d
+        /context_struct_compute_av(policydb/d
+        /^[[:space:]]*}$/d
+    }' "$SELINUX_HIDE_C"
+    # Remove security_dump_masked_av_fn conditional call (debug audit, safe to drop)
+    sed -i '/if (security_dump_masked_av_fn)/,+1d' "$SELINUX_HIDE_C"
+    echo "[SUSFS-Fixup] selinux_hide.c: Removed undefined context_struct_compute_av_fn and security_dump_masked_av_fn"
+fi
+
+# ==========================================================================
 # Dispatch per manager
 # ==========================================================================
 case "$MANAGER" in
-    mambosu|sukisu)
+    sukisu)
         fix_sulog_type_mismatch
         fix_execveat_handlers
         fix_kprobe_supercall
+        ;;
+    mambosu)
+        fix_sulog_type_mismatch
+        fix_execveat_handlers
+        # MamboSU uses KernelSU-Next hooking architecture
+        fix_ksu_next_kbuild
+        fix_ksu_next_bridge
+        fix_ksu_next_ksud
+        # If it still has kprobe supercall, fix it, otherwise use next's
+        if [ -f "$SUPERCALL_C" ] && grep -q "reboot_handler_pre" "$SUPERCALL_C" 2>/dev/null; then
+            fix_kprobe_supercall
+        else
+            fix_ksu_next_supercall
+        fi
+        # Fix adb_root call signature mismatch in syscall_event_bridge.c
+        # SUSFS patch changed adb_root from (struct pt_regs *) to
+        # (const char *filename, void ***envp_user_ptr) but bridge still uses old call
+        if [ -f "$BRIDGE_C" ] && grep -q 'ksu_adb_root_handle_execve((struct pt_regs \*)regs)' "$BRIDGE_C" 2>/dev/null; then
+            sed -i 's|ksu_adb_root_handle_execve((struct pt_regs \*)regs)|ksu_adb_root_handle_execve((const char *)PT_REGS_PARM1(regs), (void __user ***)\&PT_REGS_PARM3(regs))|' "$BRIDGE_C"
+            echo "[SUSFS-Fixup] syscall_event_bridge.c: Fixed adb_root call signature"
+        fi
+        # Restore ksu_sulog_capture_root_execve in event.c if missing
+        if [ -f "$SULOG_EVENT_C" ] && ! grep -q "ksu_sulog_capture_root_execve" "$SULOG_EVENT_C" 2>/dev/null; then
+            cat >> "$SULOG_EVENT_C" << 'SULOG_EXECVE_EOF'
+
+struct ksu_sulog_pending_event *ksu_sulog_capture_root_execve(const char __user *filename_user,
+                                                              const char __user *const __user *argv_user, gfp_t gfp)
+{
+    struct user_arg_ptr _argv_wrap = { .ptr.native = argv_user };
+    return ksu_sulog_capture(KSU_SULOG_EVENT_ROOT_EXECVE, filename_user, &_argv_wrap, gfp);
+}
+SULOG_EXECVE_EOF
+            echo "[SUSFS-Fixup] sulog/event.c: Restored ksu_sulog_capture_root_execve"
+        fi
+        if [ -f "$SULOG_EVENT_H" ] && ! grep -q "ksu_sulog_capture_root_execve" "$SULOG_EVENT_H" 2>/dev/null; then
+            sed -i '/ksu_sulog_capture_sucompat/i struct ksu_sulog_pending_event *ksu_sulog_capture_root_execve(const char __user *filename_user, const char __user *const __user *argv_user, gfp_t gfp);' "$SULOG_EVENT_H"
+        fi
+        # MamboSU: Restore ksu_late_loaded removed by SUSFS patch
+        if [ -f "$INIT_C" ] && grep -q "ksu_late_loaded" "$INIT_C" 2>/dev/null && \
+           ! grep -q "bool ksu_late_loaded" "$INIT_C" 2>/dev/null; then
+            # Restore variable definition after ksu_cred
+            sed -i '/^struct cred \*ksu_cred;/a bool ksu_late_loaded;' "$INIT_C"
+            # Restore #ifdef MODULE initialization block before the debug block
+            sed -i '/^int __init kernelsu_init(void)/,/^{/{/^{/a\
+#ifdef MODULE\n\tksu_late_loaded = (current->pid != 1);\n#else\n\tksu_late_loaded = false;\n#endif
+}' "$INIT_C"
+            echo "[SUSFS-Fixup] init.c: Restored ksu_late_loaded definition and init"
+        fi
+        if [ -f "$KSU_H" ] && grep -q "ksu_late_loaded" "$INIT_C" 2>/dev/null && \
+           ! grep -q "ksu_late_loaded" "$KSU_H" 2>/dev/null; then
+            sed -i '/^extern struct cred \*ksu_cred;/a extern bool ksu_late_loaded;' "$KSU_H"
+            echo "[SUSFS-Fixup] ksu.h: Restored extern ksu_late_loaded"
+        fi
         ;;
     ksu-next)
         fix_ksu_next_kbuild
