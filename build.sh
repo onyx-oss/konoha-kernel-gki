@@ -12,7 +12,7 @@ set -e
 #   kpm_superkey=STRING   KPM SuperKey (required if kpm=on)
 #   kpm_patch=on|off      Inject kpimg with kptools (default: on; resukisu defaults off)
 #   lto=thin|full|none    LTO type (default: thin)
-#   autofdo=on|off        AutoFDO (default: off)
+#   autofdo=on|off        AutoFDO (default: on)
 # ==========================================
 
 VERSION="1.1"
@@ -169,6 +169,7 @@ fi
 [ -z "$WIFI_EXPLOIT" ] && WIFI_EXPLOIT="on"
 [ -z "$KGSL_EXPLOIT" ] && KGSL_EXPLOIT="on"
 [ -z "$DATA_EXPLOIT" ] && DATA_EXPLOIT="on"
+[ -z "$AUTOFDO" ] && AUTOFDO="on"
 
 
 # ==========================================
