@@ -936,6 +936,99 @@ if [ -f "$SELINUX_HIDE_C" ] && grep -q "context_struct_compute_av_fn\|security_d
     echo "[SUSFS-Fixup] selinux_hide.c: Removed undefined context_struct_compute_av_fn and security_dump_masked_av_fn"
 fi
 
+# --------------------------------------------------------------------------
+# fix_dirty_sepolicy — re-inject setprocattr LSM hook (DirtySepolicy counter)
+# --------------------------------------------------------------------------
+# The SUSFS patch strips the my_setprocattr hook from selinux_hide.c that
+# upstream KernelSU added in PR #3459 to counter DirtySepolicy detection.
+# This function re-injects:
+#   1. #include "hook/lsm_hook.h"
+#   2. my_setprocattr function + selinux_setprocattr_hook struct
+#   3. ksu_lsm_hook() call in ksu_selinux_hide_enable()
+#   4. ksu_lsm_unhook() call in the disable/exit path
+# --------------------------------------------------------------------------
+fix_dirty_sepolicy() {
+    if [ ! -f "$SELINUX_HIDE_C" ]; then return; fi
+
+    # Skip if already patched
+    if grep -q "my_setprocattr" "$SELINUX_HIDE_C" 2>/dev/null; then
+        echo "[SUSFS-Fixup] selinux_hide.c: DirtySepolicy fix already present"
+        return
+    fi
+
+    # 1. Add #include "hook/lsm_hook.h" after existing includes
+    if ! grep -q 'hook/lsm_hook.h' "$SELINUX_HIDE_C" 2>/dev/null; then
+        sed -i '/#include "policy\/feature.h"/a #include "hook/lsm_hook.h"' "$SELINUX_HIDE_C"
+    fi
+
+    # 2. Inject my_setprocattr hook before ksu_selinux_hide_enable()
+    sed -i '/^static int ksu_selinux_hide_enable()/i\
+static int my_setprocattr(const char *name, void *value, size_t size);\
+struct ksu_lsm_hook selinux_setprocattr_hook = KSU_LSM_HOOK_INIT(setprocattr, "selinux_setprocattr", my_setprocattr, 0);\
+\
+typedef int (*setprocattr_fn)(const char *name, void *value, size_t size);\
+static int __nocfi my_setprocattr(const char *name, void *value, size_t size)\
+{\
+    int error;\
+    u32 mysid, sid;\
+    char *str = value;\
+    if (likely(current_uid().val < 10000)) {\
+        goto call_orig;\
+    }\
+\
+    if (strcmp(name, "current")) {\
+        goto call_orig;\
+    }\
+    mysid = current_sid();\
+\
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)\
+    error = avc_has_perm(mysid, mysid, SECCLASS_PROCESS, PROCESS__SETCURRENT, NULL);\
+#else\
+    error = avc_has_perm(&selinux_state, mysid, mysid, SECCLASS_PROCESS, PROCESS__SETCURRENT, NULL);\
+#endif\
+    if (error) {\
+        return error;\
+    }\
+\
+    if (size && str[0] && str[0] != '"'"'\\n'"'"') {\
+        if (str[size - 1] == '"'"'\\n'"'"') {\
+            str[size - 1] = 0;\
+            size--;\
+        }\
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)\
+        error = security_context_to_sid_with_policy(backup_sepolicy, str, size, &sid, SECSID_NULL, GFP_KERNEL);\
+#else\
+        error = security_context_to_sid(&fake_state, str, size, &sid, GFP_KERNEL);\
+#endif\
+        if (error) {\
+            return error;\
+        }\
+    }\
+\
+call_orig:\
+    return ((setprocattr_fn)selinux_setprocattr_hook.original)(name, value, size);\
+}\
+' "$SELINUX_HIDE_C"
+
+    # 3. Add ksu_lsm_hook() call inside ksu_selinux_hide_enable() before "return 0;"
+    sed -i '/^static int ksu_selinux_hide_enable/,/^}/ {
+        /return 0;/i\
+    /* DirtySepolicy: hook setprocattr to validate against clean sepolicy */\
+    {\
+        int lsm_ret = ksu_lsm_hook(\&selinux_setprocattr_hook);\
+        if (lsm_ret) {\
+            pr_err("selinux_hide: selinux_setprocattr_hook err: %d\\n", lsm_ret);\
+        }\
+    }
+    }' "$SELINUX_HIDE_C"
+
+    # 4. Add ksu_lsm_unhook() in the disable path (when ksu_selinux_hide_running goes false)
+    sed -i '/ksu_selinux_hide_running = false;/i\
+            ksu_lsm_unhook(\&selinux_setprocattr_hook);' "$SELINUX_HIDE_C"
+
+    echo "[SUSFS-Fixup] selinux_hide.c: Restored DirtySepolicy setprocattr hook (PR #3459)"
+}
+
 # ==========================================================================
 # Dispatch per manager
 # ==========================================================================
@@ -976,6 +1069,7 @@ SULOG_EXECVE_EOF
         fi
         
         fix_ksu_late_loaded
+        fix_dirty_sepolicy
         ;;
     ksu-next)
         fix_ksu_next_kbuild
@@ -984,6 +1078,7 @@ SULOG_EXECVE_EOF
         fix_ksu_next_ksud
         fix_execveat_handlers
         fix_ksu_next_susfs_umount
+        fix_dirty_sepolicy
         # Fix adb_root call signature mismatch in syscall_event_bridge.c
         if [ -f "$BRIDGE_C" ] && grep -q 'ksu_adb_root_handle_execve((struct pt_regs \*)regs)' "$BRIDGE_C" 2>/dev/null; then
             sed -i 's|ksu_adb_root_handle_execve((struct pt_regs \*)regs)|ksu_adb_root_handle_execve((const char *)PT_REGS_PARM1(regs), (void __user ***)\&PT_REGS_PARM3(regs))|' "$BRIDGE_C"
