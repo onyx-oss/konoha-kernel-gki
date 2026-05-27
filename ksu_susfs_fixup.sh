@@ -98,7 +98,6 @@ if [ "$MANAGER" = "resukisu" ]; then
         }' "$SELINUX_HIDE_C"
         echo "[SUSFS-Fixup] selinux_hide.c: Removed undefined context_struct_compute_av_fn"
     fi
-    exit 0
 fi
 
 # ==========================================================================
@@ -182,7 +181,7 @@ fi
 # ==========================================================================
 # [SHARED] selinux/rules.c — susfs SID init calls
 # ==========================================================================
-if [ -f "$RULES_C" ] && ! grep -q "susfs_set_zygote_sid" "$RULES_C" 2>/dev/null; then
+if [ "$MANAGER" != "resukisu" ] && [ -f "$RULES_C" ] && ! grep -q "susfs_set_zygote_sid" "$RULES_C" 2>/dev/null; then
     if grep -q "susfs_set_batch_sid" "$RULES_C" 2>/dev/null; then
         echo "[SUSFS-Fixup] selinux/rules.c: Using modern susfs_set_batch_sid"
     else
@@ -307,8 +306,16 @@ EOF
 #ifdef CONFIG_KSU_SUSFS
 #include <linux/fs.h>
 struct user_arg_ptr;
+EOF
+
+    if ! grep -q "ksu_handle_execveat_init" "$SUCOMPAT_C" 2>/dev/null; then
+        cat >> "$SUCOMPAT_H" << 'EOF'
 int ksu_handle_execveat_init(struct filename *filename,
     struct user_arg_ptr *argv_user, struct user_arg_ptr *envp_user);
+EOF
+    fi
+
+    cat >> "$SUCOMPAT_H" << 'EOF'
 int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr,
     void *argv_user, void *envp_user, int *__never_use_flags);
 int ksu_handle_execveat(int *fd, struct filename **filename_ptr, void *argv,
@@ -589,8 +596,7 @@ STAT_USER_EOF
 
 long ksu_handle_execve_sucompat(const char __user **filename_user, int orig_nr, const struct pt_regs *regs)
 {
-    long (*sys_func)(const struct pt_regs *) = ksu_syscall_table[orig_nr];
-    return sys_func(regs);
+    return 0;
 }
 SUCOMPAT_EOF
         echo "[SUSFS-Fixup] sucompat.c: Injected ksu_handle_execve_sucompat stub"
@@ -923,13 +929,9 @@ if [ -f "$SELINUX_HIDE_C" ] && grep -q "context_struct_compute_av_fn\|security_d
     # Remove the extern declarations (multi-line)
     sed -i '/^extern void context_struct_compute_av_fn/,/struct extended_perms \*xperms);/d' "$SELINUX_HIDE_C"
     sed -i '/^extern void security_dump_masked_av_fn/,/const char \*reason);/d' "$SELINUX_HIDE_C"
-    # Replace conditional context_struct_compute_av_fn call with direct call
-    sed -i '/context_struct_compute_av_fn/,+4{
-        /if (context_struct_compute_av_fn)/c\    context_struct_compute_av(policydb, scontext, tcontext, tclass, avd, NULL);
-        /context_struct_compute_av_fn(policydb/d
-        /} else {/d
-        /context_struct_compute_av(policydb/d
-        /^[[:space:]]*}$/d
+    sed -i '/if (context_struct_compute_av_fn) {/{
+        N;N;N;N
+        s/if (context_struct_compute_av_fn) {\n.*context_struct_compute_av_fn.*\n.*} else {\n.*context_struct_compute_av(.*\n.*}/context_struct_compute_av(policydb, scontext, tcontext, tclass, avd, NULL);/
     }' "$SELINUX_HIDE_C"
     # Remove security_dump_masked_av_fn conditional call (debug audit, safe to drop)
     sed -i '/if (security_dump_masked_av_fn)/,+1d' "$SELINUX_HIDE_C"
@@ -1017,7 +1019,7 @@ fix_dirty_sepolicy() {
 # fix_backup_sepolicy_leak — prevent backup_sepolicy from being overwritten
 # --------------------------------------------------------------------------
 fix_backup_sepolicy_leak() {
-    local RULES_C="$KSU_DIR/selinux/rules.c"
+    local RULES_C="$KSU_KERNEL/selinux/rules.c"
     [ ! -f "$RULES_C" ] && RULES_C=".root_modules/KernelSU-Next/kernel/selinux/rules.c"
     if [ ! -f "$RULES_C" ]; then return; fi
 
@@ -1052,16 +1054,16 @@ with open('$RULES_C', 'w') as f:
 # fix_dirty_sepolicy_seqno — fix Seqno split in DirtySepolicy (Duck Detector)
 # --------------------------------------------------------------------------
 fix_dirty_sepolicy_seqno() {
-    local RULES_C="$KSU_DIR/selinux/rules.c"
-    local HIDE_C="$KSU_DIR/feature/selinux_hide.c"
+    local RULES_C="$KSU_KERNEL/selinux/rules.c"
+    local HIDE_C="$KSU_KERNEL/feature/selinux_hide.c"
 
     [ ! -f "$RULES_C" ] && RULES_C=".root_modules/KernelSU-Next/kernel/selinux/rules.c"
     [ ! -f "$HIDE_C" ] && HIDE_C=".root_modules/KernelSU-Next/kernel/feature/selinux_hide.c"
 
     if [ ! -f "$RULES_C" ] || [ ! -f "$HIDE_C" ]; then return; fi
 
-    if grep -q "status->policyload" "$HIDE_C" 2>/dev/null; then
-        echo "[SUSFS-Fixup] selinux_hide.c: seqno split already fixed"
+    if grep -q "status->policyload" "$HIDE_C" 2>/dev/null && grep -q "status->policyload" "$RULES_C" 2>/dev/null; then
+        echo "[SUSFS-Fixup] selinux_hide.c and rules.c: seqno split already fixed"
         return
     fi
 
@@ -1075,7 +1077,7 @@ def fix_rules_c(filepath):
     with open(filepath, 'r') as f:
         content = f.read()
 
-    pattern = r'(static void reset_avc_cache\(\)\s*\{)(.*?)(#if \(LINUX_VERSION_CODE)'
+    pattern = r'(static void reset_avc_cache\(\)\s*\{)(.*?)(#if\s*\([^#]*?)(?=avc_ss_reset|struct selinux_avc)'
     def repl(m):
         return m.group(1) + \"\n    u32 seqno = 1;\n    struct page *spage = selinux_kernel_status_page();\n    if (spage) {\n        struct selinux_kernel_status *status = page_address(spage);\n        seqno = status->policyload;\n    }\n    if (seqno == 0) seqno = 1;\n\" + m.group(3)
 
@@ -1119,13 +1121,16 @@ fix_hide_c('$HIDE_C')
 }
 
 case "$MANAGER" in
-    sukisu|mambosu)
+    resukisu|sukisu|mambosu)
         fix_sulog_type_mismatch
         fix_execveat_handlers
         # Both use KernelSU-Next hooking architecture
         fix_ksu_next_kbuild
         fix_ksu_next_bridge
         fix_ksu_next_ksud
+        fix_dirty_sepolicy
+        fix_dirty_sepolicy_seqno
+        fix_backup_sepolicy_leak
         # If it still has kprobe supercall, fix it, otherwise use next's
         if [ -f "$SUPERCALL_C" ] && grep -q "reboot_handler_pre" "$SUPERCALL_C" 2>/dev/null; then
             fix_kprobe_supercall
