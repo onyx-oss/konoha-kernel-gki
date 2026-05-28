@@ -106,16 +106,17 @@ if [ "$VARIANT" != "stock" ] && [ -z "$ROOT" ]; then
     echo " 1) KernelSU-Next (default)"
     echo " 2) KernelSU (Official)"
     echo " 3) Sukisu"
-    echo " 4) ReSukiSU"
-    echo " 5) MamboSU"
-    echo " 6) APatch (KernelPatch)"
-    echo " 7) FolkPatch (KernelPatch)"
-    read -p "Enter choice [1-7] (default 1): " _c
-    case "${_c:-1}" in 2) ROOT="ksu" ;; 3) ROOT="sukisu" ;; 4) ROOT="resukisu" ;; 5) ROOT="mambosu" ;; 6) ROOT="apatch" ;; 7) ROOT="folkpatch" ;; *) ROOT="ksu-next" ;; esac
+    echo " 4) YukiSU"
+    echo " 5) ReSukiSU"
+    echo " 6) MamboSU"
+    echo " 7) APatch (KernelPatch)"
+    echo " 8) FolkPatch (KernelPatch)"
+    read -p "Enter choice [1-8] (default 1): " _c
+    case "${_c:-1}" in 2) ROOT="ksu" ;; 3) ROOT="sukisu" ;; 4) ROOT="yukisu" ;; 5) ROOT="resukisu" ;; 6) ROOT="mambosu" ;; 7) ROOT="apatch" ;; 8) ROOT="folkpatch" ;; *) ROOT="ksu-next" ;; esac
 fi
 
-# 5. KPM (only for sukisu/resukisu/apatch/folkpatch)
-KPM_SUPPORTED_ROOTS="sukisu resukisu apatch folkpatch"
+# 5. KPM (only for sukisu/yukisu/resukisu/apatch/folkpatch)
+KPM_SUPPORTED_ROOTS="sukisu yukisu resukisu apatch folkpatch"
 if [ "$VARIANT" != "stock" ] && echo "$KPM_SUPPORTED_ROOTS" | grep -qw "$ROOT"; then
     if [ -z "$KPM" ]; then
         echo "=========================================="
@@ -189,6 +190,7 @@ fi
 case "$ROOT" in
     ksu)      ROOT_REPO="https://github.com/tiann/KernelSU.git"; REPO_NAME="KernelSU"; BRANCH="main" ;;
     sukisu)   ROOT_REPO="https://github.com/sukisu-ultra/sukisu-ultra.git"; REPO_NAME="sukisu-ultra"; BRANCH="main" ;;
+    yukisu)   ROOT_REPO="https://github.com/Anatdx/YukiSU.git"; REPO_NAME="YukiSU"; BRANCH="main" ;;
     resukisu) ROOT_REPO="https://github.com/ReSukiSU/ReSukiSU.git"; REPO_NAME="ReSukiSU"; BRANCH="main" ;;
     mambosu)  ROOT_REPO="https://github.com/RapliVx/KernelSU.git"; REPO_NAME="MamboSU"; BRANCH="master" ;;
     apatch)   REPO_NAME="APatch" ;;
@@ -270,8 +272,8 @@ else
         ln -sfn ../uapi "$MODULES_DIR/$REPO_NAME/kernel/uapi"
     fi
 
-    # SukiSU KPM header compatibility fixes
-    if [ "$ROOT" == "sukisu" ] && [ "$KPM" == "on" ]; then
+    # SukiSU / YukiSU KPM header compatibility fixes
+    if { [ "$ROOT" == "sukisu" ] || [ "$ROOT" == "yukisu" ]; } && [ "$KPM" == "on" ]; then
         KPM_HEADER="$MODULES_DIR/$REPO_NAME/kernel/kpm/kpm.h"
         KPM_COMPACT="$MODULES_DIR/$REPO_NAME/kernel/kpm/compact.c"
         SUPERCALL_UAPI="$MODULES_DIR/$REPO_NAME/uapi/supercall.h"
@@ -519,7 +521,7 @@ case "$VARIANT" in
     root)  scripts/config --file "$OUT_DIR/.config" -e CONFIG_KSU -d CONFIG_KSU_SUSFS ;;
     susfs) 
         scripts/config --file "$OUT_DIR/.config" -e CONFIG_KSU_SUSFS -e CONFIG_KSU_SUSFS_SUS_MAP
-        if [[ "$ROOT" == *"ksu"* ]] || [[ "$ROOT" == *"sukisu"* ]] || [[ "$ROOT" == "mambosu" ]]; then
+        if [ "$VARIANT" != "stock" ]; then
             scripts/config --file "$OUT_DIR/.config" -e CONFIG_KSU
         else
             scripts/config --file "$OUT_DIR/.config" -d CONFIG_KSU

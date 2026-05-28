@@ -23,7 +23,7 @@ jobs:
           - { id: 500, name: performance }
           - { id: 1000, name: ultra-performance }
         variant: [stock, root, susfs]
-        root: [none, ksu, ksu-next, sukisu, resukisu, mambosu]
+        root: [none, ksu, ksu-next, sukisu, yukisu, resukisu, mambosu]
         kpm: [off, on]
         hardened: [off, on]
         bypasscharging: [off, on]
@@ -42,6 +42,8 @@ jobs:
             root: none
           - variant: susfs
             root: none
+          - variant: stock
+            root: yukisu
           - variant: stock
             kpm: on
           - variant: root
@@ -228,12 +230,13 @@ jobs:
                   
                   if root == 'ksu' and ('kernelsu' not in fl or 'next' in fl): continue
                   if root == 'ksu-next' and 'next' not in fl: continue
-                  if root == 'sukisu' and ('sukisu' not in fl or 'resukisu' in fl): continue
+                  if root == 'sukisu' and ('sukisu' not in fl or 'resukisu' in fl or 'yukisu' in fl): continue
+                  if root == 'yukisu' and 'yukisu' not in fl: continue
                   if root == 'resukisu' and 'resukisu' not in fl: continue
                   if root == 'mambosu' and 'mambosu' not in fl: continue
                   if root == 'apatch' and 'apatch' not in fl: continue
                   if root == 'folkpatch' and 'folkpatch' not in fl: continue
-                  if root == 'none' and any(x in fl for x in ['kernelsu', 'sukisu', 'resukisu', 'mambosu', 'apatch', 'folkpatch']): continue
+                  if root == 'none' and any(x in fl for x in ['kernelsu', 'sukisu', 'yukisu', 'resukisu', 'mambosu', 'apatch', 'folkpatch']): continue
                   
                   if hz == 'ultra-performance' and '-ultra-performance-' not in fl: continue
                   if hz == 'performance' and ('-performance-' not in fl or '-ultra-performance-' in fl): continue
@@ -266,6 +269,8 @@ jobs:
               ('KernelSU Next', 'root', 'ksu-next', False, False),
               ('Sukisu', 'root', 'sukisu', False, False),
               ('Sukisu + KPM', 'root', 'sukisu', True, False),
+              ('YukiSU', 'root', 'yukisu', False, False),
+              ('YukiSU + KPM', 'root', 'yukisu', True, False),
               ('Resukisu', 'root', 'resukisu', False, False),
               ('Resukisu + KPM', 'root', 'resukisu', True, False),
               ('Mambosu', 'root', 'mambosu', False, False),
@@ -277,6 +282,8 @@ jobs:
               ('KernelSU Next', 'susfs', 'ksu-next', False, False),
               ('Sukisu', 'susfs', 'sukisu', False, False),
               ('Sukisu + KPM', 'susfs', 'sukisu', True, False),
+              ('YukiSU', 'susfs', 'yukisu', False, False),
+              ('YukiSU + KPM', 'susfs', 'yukisu', True, False),
               ('Resukisu', 'susfs', 'resukisu', False, False),
               ('Resukisu + KPM', 'susfs', 'resukisu', True, False),
               ('Mambosu', 'susfs', 'mambosu', False, False),
@@ -289,6 +296,8 @@ jobs:
               ('KernelSU Next', 'root', 'ksu-next', False, True),
               ('Sukisu', 'root', 'sukisu', False, True),
               ('Sukisu + KPM', 'root', 'sukisu', True, True),
+              ('YukiSU', 'root', 'yukisu', False, True),
+              ('YukiSU + KPM', 'root', 'yukisu', True, True),
               ('Resukisu', 'root', 'resukisu', False, True),
               ('Resukisu + KPM', 'root', 'resukisu', True, True),
               ('Mambosu', 'root', 'mambosu', False, True),
@@ -300,6 +309,8 @@ jobs:
               ('KernelSU Next', 'susfs', 'ksu-next', False, True),
               ('Sukisu', 'susfs', 'sukisu', False, True),
               ('Sukisu + KPM', 'susfs', 'sukisu', True, True),
+              ('YukiSU', 'susfs', 'yukisu', False, True),
+              ('YukiSU + KPM', 'susfs', 'yukisu', True, True),
               ('Resukisu', 'susfs', 'resukisu', False, True),
               ('Resukisu + KPM', 'susfs', 'resukisu', True, True),
               ('Mambosu', 'susfs', 'mambosu', False, True),
