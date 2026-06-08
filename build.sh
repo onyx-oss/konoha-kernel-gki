@@ -47,8 +47,22 @@ for arg in "$@"; do
         data_exploit=*) DATA_EXPLOIT="${arg#*=}" ;;
         droidspaces=*) DROIDSPACES="${arg#*=}" ;;
         debug=*) DEBUG_MODE="${arg#*=}" ;;
+        kernel_name=*) KERNEL_NAME="${arg#*=}" ;;
+        spoof_uname=*) SPOOF_UNAME="${arg#*=}" ;;
+
     esac
 done
+
+
+echo "Applying Custom Kernel Name and Spoof Uname..."
+if [ -n "$KERNEL_NAME" ]; then
+    sed -i "s/CONFIG_LOCALVERSION=\".*\"/CONFIG_LOCALVERSION=\"$KERNEL_NAME\"/g" arch/arm64/configs/konoha_defconfig
+fi
+
+if [ "$SPOOF_UNAME" == "on" ]; then
+    # Spoof to standard Android stock naming (remove custom localversion)
+    sed -i 's/CONFIG_LOCALVERSION=.*/CONFIG_LOCALVERSION=\"\"/g' arch/arm64/configs/konoha_defconfig
+fi
 
 # ==========================================
 # Non-Interactive Mode (Defaults)
@@ -731,6 +745,19 @@ cp -r "$KERNEL_DIR/anykernel" "$TEMP_DIR"
 for img in Image.gz-dtb Image.gz Image; do
     [ -f "$ZIMAGE_DIR/$img" ] && { cp -v "$ZIMAGE_DIR/$img" "$TEMP_DIR/"; break; }
 done
+
+
+echo "Applying Custom Kernel Name and Spoof Uname..."
+if [ -n "$KERNEL_NAME" ]; then
+    sed -i "s/CONFIG_LOCALVERSION=".*"/CONFIG_LOCALVERSION="$KERNEL_NAME"/g" arch/arm64/configs/konoha_defconfig
+fi
+
+if [ "$SPOOF_UNAME" == "on" ]; then
+    # Ensure SUSFS spoof is enabled
+    sed -i "s/# CONFIG_KSU_SUSFS_SPOOF_UNAME is not set/CONFIG_KSU_SUSFS_SPOOF_UNAME=y/g" arch/arm64/configs/konoha_defconfig
+elif [ "$SPOOF_UNAME" == "off" ]; then
+    sed -i "s/CONFIG_KSU_SUSFS_SPOOF_UNAME=y/# CONFIG_KSU_SUSFS_SPOOF_UNAME is not set/g" arch/arm64/configs/konoha_defconfig
+fi
 
 # Build filename
 ZIP_SUFFIX=""
