@@ -510,7 +510,13 @@ EXTREME_CLANG_FLAGS=(
     -fslp-vectorize
     -fdelete-null-pointer-checks
     -moutline 
-    # No safeties (Raw Performance)
+    # =================================================================
+    # RAW PERFORMANCE FLAGS — DO NOT REMOVE!
+    # These intentionally disable security overhead for maximum speed:
+    #   -fno-stack-protector    : skip canary checks (~2-5% syscall speedup)
+    #   -mbranch-protection=none: skip PAC sign/auth (~1-3% branch overhead)
+    #   -mharden-sls=none      : skip SLS barrier instructions
+    # =================================================================
     -mharden-sls=none
     -mbranch-protection=none
     -fno-semantic-interposition
@@ -646,9 +652,12 @@ DEBUG_REDUCTION_ARGS=(
     -d CONFIG_RCU_TRACE
     -d CONFIG_CMA_DEBUGFS
     -d CONFIG_UBSAN -d CONFIG_UBSAN_BOUNDS -d CONFIG_UBSAN_ARRAY_BOUNDS -d CONFIG_UBSAN_LOCAL_BOUNDS -d CONFIG_UBSAN_SANITIZE_ALL -d CONFIG_UBSAN_TRAP
- 
-    # -d CONFIG_SCHEDSTATS # bootloop
 
+    # === RE-VERIFIED SAFE COMPILE-TIME DISABLES (readelf + modinfo traced) ===
+    -d CONFIG_CLEANCACHE           # 0 DLKMs import, no namespace deps
+    -d CONFIG_PRINTK_TIME          # bool default only, no symbol exported
+    # ⛔ -d CONFIG_ANDROID_DEBUG_SYMBOLS  # msm_sysstats.ko imports MINIDUMP ns!
+    # ⛔ -d CONFIG_ANDROID_DEBUG_KINFO    # ANDROID_GKI_struct_kernel_all_info exported
 )
 scripts/config --file "$OUT_DIR/.config" "${DEBUG_REDUCTION_ARGS[@]}"
 
@@ -659,6 +668,17 @@ CURRENT_CMDLINE=$(grep '^CONFIG_CMDLINE=' "$OUT_DIR/.config" | sed 's/^CONFIG_CM
 CMDLINE_APPEND=""
 echo "$CURRENT_CMDLINE" | grep -q "kasan=off" || CMDLINE_APPEND="$CMDLINE_APPEND kasan=off"
 echo "$CURRENT_CMDLINE" | grep -q "panic_on_rcu_stall" || CMDLINE_APPEND="$CMDLINE_APPEND kernel.panic_on_rcu_stall=0"
+
+# === RUNTIME PERF PARAMS (zero-risk — code stays compiled, just disabled at boot) ===
+# These achieve the same effect as compile-time config disables but without
+# any struct layout changes, KABI breaks, or Kconfig cascades.
+echo "$CURRENT_CMDLINE" | grep -q "init_on_alloc=" || CMDLINE_APPEND="$CMDLINE_APPEND init_on_alloc=0"
+echo "$CURRENT_CMDLINE" | grep -q "page_alloc.shuffle=" || CMDLINE_APPEND="$CMDLINE_APPEND page_alloc.shuffle=0"
+echo "$CURRENT_CMDLINE" | grep -q "randomize_kstack_offset=" || CMDLINE_APPEND="$CMDLINE_APPEND randomize_kstack_offset=0"
+echo "$CURRENT_CMDLINE" | grep -q "loglevel=" || CMDLINE_APPEND="$CMDLINE_APPEND loglevel=0"
+# ⛔ audit=0 — BREAKS SELinux enforcing → bootloop
+# ⛔ nosoftlockup — risky on Qualcomm SoC, vendor drivers may expect watchdog
+
 if [ "$DEBUG_MODE" == "on" ]; then
     echo "$CURRENT_CMDLINE" | grep -q "nokaslr" || CMDLINE_APPEND="$CMDLINE_APPEND nokaslr"
 fi
