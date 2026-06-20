@@ -12,7 +12,7 @@ cleanup() {
 trap cleanup EXIT
 
 # ==========================================
-# Konoha Kernel Build Script
+# DumpC2J Kernel Build Script
 # Usage: ./build.sh [key=value ...]
 #   hz=100|250|1000       Timer frequency (default: 250)
 #   hardened=on|off       CPU mitigations (default: off)
@@ -56,12 +56,12 @@ done
 
 echo "Applying Custom Kernel Name and Spoof Uname..."
 if [ -n "$KERNEL_NAME" ]; then
-    sed -i "s/CONFIG_LOCALVERSION=\".*\"/CONFIG_LOCALVERSION=\"$KERNEL_NAME\"/g" arch/arm64/configs/konoha_defconfig
+    sed -i "s/CONFIG_LOCALVERSION=\".*\"/CONFIG_LOCALVERSION=\"$KERNEL_NAME\"/g" arch/arm64/configs/DumpC2J_defconfig
 fi
 
 if [ "$SPOOF_UNAME" == "on" ]; then
     # Spoof to standard Android stock naming (remove custom localversion)
-    sed -i 's/CONFIG_LOCALVERSION=.*/CONFIG_LOCALVERSION=\"\"/g' arch/arm64/configs/konoha_defconfig
+    sed -i 's/CONFIG_LOCALVERSION=.*/CONFIG_LOCALVERSION=\"\"/g' arch/arm64/configs/DumpC2J_defconfig
 fi
 
 # ==========================================
@@ -579,7 +579,7 @@ fi
 # Kernel Config
 # ==========================================
 mkdir -p "$OUT_DIR"
-make O="$OUT_DIR" CC=clang LLVM=1 LLVM_IAS=1 KCFLAGS="$KERNEL_KCFLAGS" LDFLAGS="$KERNEL_LDFLAGS" konoha_defconfig || exit 1
+make O="$OUT_DIR" CC=clang LLVM=1 LLVM_IAS=1 KCFLAGS="$KERNEL_KCFLAGS" LDFLAGS="$KERNEL_LDFLAGS" DumpC2J_defconfig || exit 1
 
 # Root config
 case "$VARIANT" in
@@ -751,8 +751,8 @@ fi
 # ==========================================
 # Package
 # ==========================================
-find "$KERNEL_DIR" -maxdepth 1 -type f -name "Kono-Ha-*.zip" -exec rm -v {} \;
-rm -rf "$KERNEL_DIR/Kono-Ha-Release"
+find "$KERNEL_DIR" -maxdepth 1 -type f -name "DumpC2J-*.zip" -exec rm -v {} \;
+rm -rf "$KERNEL_DIR/DumpC2J-Release"
 
 TIME=$(date "+%Y%m%d-%H%M%S")
 TEMP_DIR="$KERNEL_DIR/anykernel_temp"
@@ -769,14 +769,14 @@ done
 
 echo "Applying Custom Kernel Name and Spoof Uname..."
 if [ -n "$KERNEL_NAME" ]; then
-    sed -i "s/CONFIG_LOCALVERSION=".*"/CONFIG_LOCALVERSION="$KERNEL_NAME"/g" arch/arm64/configs/konoha_defconfig
+    sed -i "s/CONFIG_LOCALVERSION=".*"/CONFIG_LOCALVERSION="$KERNEL_NAME"/g" arch/arm64/configs/DumpC2J_defconfig
 fi
 
 if [ "$SPOOF_UNAME" == "on" ]; then
     # Ensure SUSFS spoof is enabled
-    sed -i "s/# CONFIG_KSU_SUSFS_SPOOF_UNAME is not set/CONFIG_KSU_SUSFS_SPOOF_UNAME=y/g" arch/arm64/configs/konoha_defconfig
+    sed -i "s/# CONFIG_KSU_SUSFS_SPOOF_UNAME is not set/CONFIG_KSU_SUSFS_SPOOF_UNAME=y/g" arch/arm64/configs/DumpC2J_defconfig
 elif [ "$SPOOF_UNAME" == "off" ]; then
-    sed -i "s/CONFIG_KSU_SUSFS_SPOOF_UNAME=y/# CONFIG_KSU_SUSFS_SPOOF_UNAME is not set/g" arch/arm64/configs/konoha_defconfig
+    sed -i "s/CONFIG_KSU_SUSFS_SPOOF_UNAME=y/# CONFIG_KSU_SUSFS_SPOOF_UNAME is not set/g" arch/arm64/configs/DumpC2J_defconfig
 fi
 
 # Build filename
@@ -801,13 +801,13 @@ fi
 HZ_LABEL=""
 case "$HZ" in 100) HZ_LABEL="-powersave" ;; 500) HZ_LABEL="-performance" ;; 1000) HZ_LABEL="-ultra-performance" ;; *) HZ_LABEL="-balance" ;; esac
 
-ZIP_NAME="Kono-Ha-${VERSION}${ZIP_SUFFIX}${HZ_LABEL}-$TIME.zip"
+ZIP_NAME="DumpC2J-${VERSION}${ZIP_SUFFIX}${HZ_LABEL}-$TIME.zip"
 cd "$TEMP_DIR" && zip -r9 "../$ZIP_NAME" * -x .git README.md *placeholder > /dev/null && cd ..
 rm -rf "$TEMP_DIR"
 
 # Copy to release dir for CI
-mkdir -p "$KERNEL_DIR/Kono-Ha-Release"
-cp "$KERNEL_DIR/$ZIP_NAME" "$KERNEL_DIR/Kono-Ha-Release/"
+mkdir -p "$KERNEL_DIR/DumpC2J-Release"
+cp "$KERNEL_DIR/$ZIP_NAME" "$KERNEL_DIR/DumpC2J-Release/"
 
 # GitHub Actions outputs
 if [ "$GITHUB_ACTIONS" == "true" ]; then
