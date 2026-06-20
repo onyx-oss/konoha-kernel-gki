@@ -117,8 +117,8 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Kono-Ha-${{ matrix.variant == 'stock' && format('{0}-{1}', matrix.variant, matrix.hz.name) || format('{0}-{1}-{2}', matrix.variant, matrix.root, matrix.hz.name) }}${{ matrix.kpm == 'on' && '-kpm' || '' }}${{ matrix.hardened == 'on' && '-hardened' || '' }}${{ matrix.bypasscharging == 'on' && '-bypasscharging' || '' }}${{ matrix.droidspaces == 'on' && '-droidspaces' || '' }}
-          path: gki-clo/Kono-Ha-Release
+          name: DumpC2J-${{ matrix.variant == 'stock' && format('{0}-{1}', matrix.variant, matrix.hz.name) || format('{0}-{1}-{2}', matrix.variant, matrix.root, matrix.hz.name) }}${{ matrix.kpm == 'on' && '-kpm' || '' }}${{ matrix.hardened == 'on' && '-hardened' || '' }}${{ matrix.bypasscharging == 'on' && '-bypasscharging' || '' }}${{ matrix.droidspaces == 'on' && '-droidspaces' || '' }}
+          path: gki-clo/DumpC2J-Release
           retention-days: 7
 
     # JOB 1A-DS: Build varian Standard (Hardened OFF, Droidspaces ON) - Total 152 Jobs
@@ -227,8 +227,8 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Kono-Ha-${{ matrix.variant == 'stock' && format('{0}-{1}', matrix.variant, matrix.hz.name) || format('{0}-{1}-{2}', matrix.variant, matrix.root, matrix.hz.name) }}${{ matrix.kpm == 'on' && '-kpm' || '' }}${{ matrix.hardened == 'on' && '-hardened' || '' }}${{ matrix.bypasscharging == 'on' && '-bypasscharging' || '' }}${{ matrix.droidspaces == 'on' && '-droidspaces' || '' }}
-          path: gki-clo/Kono-Ha-Release
+          name: DumpC2J-${{ matrix.variant == 'stock' && format('{0}-{1}', matrix.variant, matrix.hz.name) || format('{0}-{1}-{2}', matrix.variant, matrix.root, matrix.hz.name) }}${{ matrix.kpm == 'on' && '-kpm' || '' }}${{ matrix.hardened == 'on' && '-hardened' || '' }}${{ matrix.bypasscharging == 'on' && '-bypasscharging' || '' }}${{ matrix.droidspaces == 'on' && '-droidspaces' || '' }}
+          path: gki-clo/DumpC2J-Release
           retention-days: 7
 
   # JOB 1B: Build varian Hardened (Hardened ON) - Total 152 Jobs
@@ -337,8 +337,8 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Kono-Ha-${{ matrix.variant == 'stock' && format('{0}-{1}', matrix.variant, matrix.hz.name) || format('{0}-{1}-{2}', matrix.variant, matrix.root, matrix.hz.name) }}${{ matrix.kpm == 'on' && '-kpm' || '' }}${{ matrix.hardened == 'on' && '-hardened' || '' }}${{ matrix.bypasscharging == 'on' && '-bypasscharging' || '' }}${{ matrix.droidspaces == 'on' && '-droidspaces' || '' }}
-          path: gki-clo/Kono-Ha-Release
+          name: DumpC2J-${{ matrix.variant == 'stock' && format('{0}-{1}', matrix.variant, matrix.hz.name) || format('{0}-{1}-{2}', matrix.variant, matrix.root, matrix.hz.name) }}${{ matrix.kpm == 'on' && '-kpm' || '' }}${{ matrix.hardened == 'on' && '-hardened' || '' }}${{ matrix.bypasscharging == 'on' && '-bypasscharging' || '' }}${{ matrix.droidspaces == 'on' && '-droidspaces' || '' }}
+          path: gki-clo/DumpC2J-Release
           retention-days: 7
 
     # JOB 1B-DS: Build varian Hardened (Hardened ON, Droidspaces ON) - Total 152 Jobs
@@ -447,8 +447,8 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Kono-Ha-${{ matrix.variant == 'stock' && format('{0}-{1}', matrix.variant, matrix.hz.name) || format('{0}-{1}-{2}', matrix.variant, matrix.root, matrix.hz.name) }}${{ matrix.kpm == 'on' && '-kpm' || '' }}${{ matrix.hardened == 'on' && '-hardened' || '' }}${{ matrix.bypasscharging == 'on' && '-bypasscharging' || '' }}${{ matrix.droidspaces == 'on' && '-droidspaces' || '' }}
-          path: gki-clo/Kono-Ha-Release
+          name: DumpC2J-${{ matrix.variant == 'stock' && format('{0}-{1}', matrix.variant, matrix.hz.name) || format('{0}-{1}-{2}', matrix.variant, matrix.root, matrix.hz.name) }}${{ matrix.kpm == 'on' && '-kpm' || '' }}${{ matrix.hardened == 'on' && '-hardened' || '' }}${{ matrix.bypasscharging == 'on' && '-bypasscharging' || '' }}${{ matrix.droidspaces == 'on' && '-droidspaces' || '' }}
+          path: gki-clo/DumpC2J-Release
           retention-days: 7
 
   # JOB 2: Build khusus APatch dan FolkPatch (Total: 64 Jobs, menghindari limit matrix 256 job github)
@@ -520,8 +520,8 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Kono-Ha-${{ format('{0}-{1}-{2}-kpm', matrix.variant, matrix.root, matrix.hz.name) }}${{ matrix.hardened == 'on' && '-hardened' || '' }}${{ matrix.bypasscharging == 'on' && '-bypasscharging' || '' }}${{ matrix.droidspaces == 'on' && '-droidspaces' || '' }}
-          path: gki-clo/Kono-Ha-Release
+          name: DumpC2J-${{ format('{0}-{1}-{2}-kpm', matrix.variant, matrix.root, matrix.hz.name) }}${{ matrix.hardened == 'on' && '-hardened' || '' }}${{ matrix.bypasscharging == 'on' && '-bypasscharging' || '' }}${{ matrix.droidspaces == 'on' && '-droidspaces' || '' }}
+          path: gki-clo/DumpC2J-Release
           retention-days: 7
 
   release:

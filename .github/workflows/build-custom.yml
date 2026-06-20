@@ -7,7 +7,7 @@ on:
         description: "Custom Kernel Name (LOCALVERSION)"
         required: true
         type: string
-        default: "-Kono-Ha-Kernel"
+        default: "-DumpC2J-Kernel"
       spoof_uname:
         description: "Spoof Uname (SUSFS/Stock Naming)"
         required: true
@@ -274,8 +274,8 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Kono-Ha-${{ env.BUILD_NAME }}
-          path: gki-clo/Kono-Ha-Release
+          name: DumpC2J-${{ env.BUILD_NAME }}
+          path: gki-clo/DumpC2J-Release
           retention-days: 7
 
   release:
