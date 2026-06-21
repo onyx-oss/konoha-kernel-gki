@@ -210,11 +210,11 @@ jobs:
 
       - name: Download Clang Toolchain
         run: |
-          mkdir -p "$HOME/toolchains/weebx-clang"
-          wget -q "$(curl -s https://raw.githubusercontent.com/XSans0/WeebX-Clang/main/main/link.txt)" -O weebx-clang.tar.gz
-          tar -xf weebx-clang.tar.gz -C "$HOME/toolchains/weebx-clang"
-          rm -f weebx-clang.tar.gz
-          echo "$HOME/toolchains/weebx-clang/bin" >> $GITHUB_PATH
+          cd $GITHUB_WORKSPACE
+          wget --no-verbose -O- https://raw.githubusercontent.com/greenforce-project/greenforce_clang/refs/heads/main/get_clang.sh | bash
+          GFORCE_DIR="$GITHUB_WORKSPACE/greenforce-clang"
+          echo "CLANG_PATH=$GFORCE_DIR" >> $GITHUB_ENV
+          echo "$GFORCE_DIR/bin" >> $GITHUB_PATH
 
       - name: Setup AnyKernel3
         run: |
