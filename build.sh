@@ -487,6 +487,8 @@ check_clang() {
 }
 
 export ARCH=arm64 SUBARCH=arm64
+export KBUILD_BUILD_USER="ch4nzuuu"
+export KBUILD_BUILD_HOST="DumpC2J"
 
 # Clang optimization
 EXTREME_CLANG_FLAGS=(
