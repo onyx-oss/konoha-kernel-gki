@@ -582,6 +582,7 @@ fi
 # ==========================================
 mkdir -p "$OUT_DIR"
 make O="$OUT_DIR" CC=clang LLVM=1 LLVM_IAS=1 KCFLAGS="$KERNEL_KCFLAGS" LDFLAGS="$KERNEL_LDFLAGS" DumpC2J_defconfig || exit 1
+scripts/config --file "$OUT_DIR/.config" -d CONFIG_VDSO32 -d CONFIG_COMPAT_VDSO
 
 # Root config
 case "$VARIANT" in
