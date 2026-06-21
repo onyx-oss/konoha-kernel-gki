@@ -210,11 +210,12 @@ jobs:
 
       - name: Download Clang Toolchain
         run: |
-          export TOOL_CLANG_DIR="$HOME/toolchains/greenforce-clang"
-          mkdir -p "$TOOL_CLANG_DIR"
-          wget --no-verbose -O- https://raw.githubusercontent.com/greenforce-project/greenforce_clang/refs/heads/main/get_clang.sh | bash
-          echo "TOOL_CLANG_DIR=$TOOL_CLANG_DIR" >> $GITHUB_ENV
-          echo "$TOOL_CLANG_DIR/bin" >> $GITHUB_PATH
+          mkdir -p "$HOME/toolchains/neutron-clang"
+          cd "$HOME/toolchains/neutron-clang"
+          curl -LO "https://raw.githubusercontent.com/Neutron-Toolchains/antman/main/antman"
+          chmod +x antman
+          ./antman -S
+          echo "$HOME/toolchains/neutron-clang/bin" >> $GITHUB_PATH
 
       - name: Setup AnyKernel3
         run: |
