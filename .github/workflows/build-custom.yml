@@ -244,11 +244,7 @@ jobs:
             echo "Applying NoMount patch: $PATCH_FILE"
             patch -p1 < "$PATCH_FILE"
             
-            cp -r /tmp/nomount/kernel/src fs/nomount
-            
-            if ! grep -q "obj-y += nomount/" fs/Makefile; then
-              echo "obj-y += nomount/" >> fs/Makefile
-            fi
+            cp -r /tmp/nomount/kernel/src/* fs/
           else
             echo "Warning: NoMount patch for $KERNEL_VERSION not found in the repository!"
             exit 1
