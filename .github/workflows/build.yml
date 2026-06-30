@@ -11,9 +11,8 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  # JOB 1A: Build varian Standard (Hardened OFF)
   build-kernel-standard:
-    name: "${{ matrix.variant == 'stock' && format('{0}-{1}', matrix.variant, matrix.hz.name) || format('{0}-{1}-{2}', matrix.variant, matrix.root, matrix.hz.name) }}-standard${{ matrix.bypasscharging == 'on' && '-bypasscharging' || '' }}"
+    name: "Kono-Ha-Bomb${{ matrix.variant == 'stock' && format('{0}-{1}', matrix.variant, matrix.hz.name) || format('{0}-{1}-{2}', matrix.variant, matrix.root, matrix.hz.name) }}-standard-bypasscharging"
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -23,11 +22,9 @@ jobs:
           - { id: 250, name: balance }
           - { id: 500, name: performance }
           - { id: 1000, name: ultra-performance }
-        variant: [stock, root, susfs]
-        root: [none, ksu, ksu-next, sukisu, yukisu, resukisu]
-        hardened: [off]
-        bypasscharging: [off, on]
-        droidspaces: [off]
+        variant: [stock, susfs]
+        root: [none, ksu, ksu-next, sukisu, resukisu]
+        bypasscharging: [on]
         exclude:
           - variant: stock
             root: ksu
@@ -37,12 +34,8 @@ jobs:
             root: sukisu
           - variant: stock
             root: resukisu
-          - variant: root
-            root: none
           - variant: susfs
             root: none
-          - variant: stock
-            root: yukisu
 
     steps:
       - name: Create Swap
@@ -113,275 +106,25 @@ jobs:
             hz=${{ matrix.hz.id }} \
             variant=${{ matrix.variant }} \
             root=${{ matrix.root }} \
-            hardened=${{ matrix.hardened }} \
-            bypasscharging=${{ matrix.bypasscharging }} \
-            droidspaces=${{ matrix.droidspaces }} \
+            hardened=off \
+            bypasscharging=on \
+            droidspaces=off \
+            kernel_name=-Kono-Ha-Bomb- \
             lto=full
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Kono-Ha-${{ matrix.variant == 'stock' && format('{0}-{1}', matrix.variant, matrix.hz.name) || format('{0}-{1}-{2}', matrix.variant, matrix.root, matrix.hz.name) }}${{ matrix.bypasscharging == 'on' && '-bypasscharging' || '' }}
+          name: Kono-Ha-Bomb-${{ matrix.variant == 'stock' && format('{0}-{1}', matrix.variant, matrix.hz.name) || format('{0}-{1}-{2}', matrix.variant, matrix.root, matrix.hz.name) }}-bypasscharging
           path: gki-clo/Kono-Ha-Release
           retention-days: 7
 
-    # JOB 1A-DS: Build varian Standard (Hardened OFF, Droidspaces ON)
-  build-kernel-standard-droidspaces:
-    name: "${{ matrix.variant == 'stock' && format('{0}-{1}', matrix.variant, matrix.hz.name) || format('{0}-{1}-{2}', matrix.variant, matrix.root, matrix.hz.name) }}-standard${{ matrix.bypasscharging == 'on' && '-bypasscharging' || '' }}-droidspaces"
-    runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        hz: 
-          - { id: 100, name: powersave }
-          - { id: 250, name: balance }
-          - { id: 500, name: performance }
-          - { id: 1000, name: ultra-performance }
-        variant: [stock, root, susfs]
-        root: [none, ksu, ksu-next, sukisu, yukisu, resukisu]
-        hardened: [off]
-        bypasscharging: [off, on]
-        droidspaces: [on]
-        exclude:
-          - variant: stock
-            root: ksu
-          - variant: stock
-            root: ksu-next
-          - variant: stock
-            root: sukisu
-          - variant: stock
-            root: resukisu
-          - variant: root
-            root: none
-          - variant: susfs
-            root: none
-          - variant: stock
-            root: yukisu
-
-    steps:
-      - name: Create Swap
-        run: |
-          SWAPFILE="/mnt/build_swapfile"
-          while true; do
-            if sudo fallocate -l 10G $SWAPFILE || sudo dd if=/dev/zero of=$SWAPFILE bs=1M count=10240 status=progress; then
-              break
-            else
-              sleep 5
-            fi
-          done
-          sudo chmod 600 $SWAPFILE && sudo mkswap $SWAPFILE && sudo swapon $SWAPFILE
-
-      - uses: actions/checkout@v4
-        with: { path: gki-clo }
-
-      - name: Setup Build Environment
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git gnupg gperf imagemagick lib32ncurses-dev lib32readline-dev lib32z1-dev libncurses-dev libsdl1.2-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev python3 clang lld llvm jq
-
-      - name: Download Clang Toolchain
-        run: |
-          mkdir -p toolchains
-          git clone --depth=1 https://github.com/ZyCromerZ/Clang.git -b main toolchains/clang
-
-      - name: Setup AnyKernel3
-        run: |
-          cd gki-clo
-          [ ! -d "anykernel" ] && git clone https://github.com/osm0sis/AnyKernel3.git anykernel || true
-
-      - name: Build Kernel
-        run: |
-          cd gki-clo
-          chmod +x build.sh
-          ./build.sh \
-            hz=${{ matrix.hz.id }} \
-            variant=${{ matrix.variant }} \
-            root=${{ matrix.root }} \
-            hardened=${{ matrix.hardened }} \
-            bypasscharging=${{ matrix.bypasscharging }} \
-            droidspaces=${{ matrix.droidspaces }} \
-            lto=full
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Kono-Ha-${{ matrix.variant == 'stock' && format('{0}-{1}', matrix.variant, matrix.hz.name) || format('{0}-{1}-{2}', matrix.variant, matrix.root, matrix.hz.name) }}${{ matrix.bypasscharging == 'on' && '-bypasscharging' || '' }}-droidspaces
-          path: gki-clo/Kono-Ha-Release
-          retention-days: 7
-
-  # JOB 1B: Build varian Hardened (Hardened ON)
-  build-kernel-hardened:
-    name: "${{ matrix.variant == 'stock' && format('{0}-{1}', matrix.variant, matrix.hz.name) || format('{0}-{1}-{2}', matrix.variant, matrix.root, matrix.hz.name) }}-hardened${{ matrix.bypasscharging == 'on' && '-bypasscharging' || '' }}"
-    runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        hz: 
-          - { id: 100, name: powersave }
-          - { id: 250, name: balance }
-          - { id: 500, name: performance }
-          - { id: 1000, name: ultra-performance }
-        variant: [stock, root, susfs]
-        root: [none, ksu, ksu-next, sukisu, yukisu, resukisu]
-        hardened: [on]
-        bypasscharging: [off, on]
-        droidspaces: [off]
-        exclude:
-          - variant: stock
-            root: ksu
-          - variant: stock
-            root: ksu-next
-          - variant: stock
-            root: sukisu
-          - variant: stock
-            root: resukisu
-          - variant: root
-            root: none
-          - variant: susfs
-            root: none
-          - variant: stock
-            root: yukisu
-
-    steps:
-      - name: Create Swap
-        run: |
-          SWAPFILE="/mnt/build_swapfile"
-          while true; do
-            if sudo fallocate -l 10G $SWAPFILE || sudo dd if=/dev/zero of=$SWAPFILE bs=1M count=10240 status=progress; then
-              break
-            else
-              sleep 5
-            fi
-          done
-          sudo chmod 600 $SWAPFILE && sudo mkswap $SWAPFILE && sudo swapon $SWAPFILE
-
-      - uses: actions/checkout@v4
-        with: { path: gki-clo }
-
-      - name: Setup Build Environment
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git gnupg gperf imagemagick lib32ncurses-dev lib32readline-dev lib32z1-dev libncurses-dev libsdl1.2-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev python3 clang lld llvm jq
-
-      - name: Download Clang Toolchain
-        run: |
-          mkdir -p toolchains
-          git clone --depth=1 https://github.com/ZyCromerZ/Clang.git -b main toolchains/clang
-
-      - name: Setup AnyKernel3
-        run: |
-          cd gki-clo
-          [ ! -d "anykernel" ] && git clone https://github.com/osm0sis/AnyKernel3.git anykernel || true
-
-      - name: Build Kernel
-        run: |
-          cd gki-clo
-          chmod +x build.sh
-          ./build.sh \
-            hz=${{ matrix.hz.id }} \
-            variant=${{ matrix.variant }} \
-            root=${{ matrix.root }} \
-            hardened=${{ matrix.hardened }} \
-            bypasscharging=${{ matrix.bypasscharging }} \
-            droidspaces=${{ matrix.droidspaces }} \
-            lto=full
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Kono-Ha-${{ matrix.variant == 'stock' && format('{0}-{1}', matrix.variant, matrix.hz.name) || format('{0}-{1}-{2}', matrix.variant, matrix.root, matrix.hz.name) }}-hardened${{ matrix.bypasscharging == 'on' && '-bypasscharging' || '' }}
-          path: gki-clo/Kono-Ha-Release
-          retention-days: 7
-
-    # JOB 1B-DS: Build varian Hardened (Hardened ON, Droidspaces ON)
-  build-kernel-hardened-droidspaces:
-    name: "${{ matrix.variant == 'stock' && format('{0}-{1}', matrix.variant, matrix.hz.name) || format('{0}-{1}-{2}', matrix.variant, matrix.root, matrix.hz.name) }}-hardened${{ matrix.bypasscharging == 'on' && '-bypasscharging' || '' }}-droidspaces"
-    runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        hz: 
-          - { id: 100, name: powersave }
-          - { id: 250, name: balance }
-          - { id: 500, name: performance }
-          - { id: 1000, name: ultra-performance }
-        variant: [stock, root, susfs]
-        root: [none, ksu, ksu-next, sukisu, yukisu, resukisu]
-        hardened: [on]
-        bypasscharging: [off, on]
-        droidspaces: [on]
-        exclude:
-          - variant: stock
-            root: ksu
-          - variant: stock
-            root: ksu-next
-          - variant: stock
-            root: sukisu
-          - variant: stock
-            root: resukisu
-          - variant: root
-            root: none
-          - variant: susfs
-            root: none
-          - variant: stock
-            root: yukisu
-
-    steps:
-      - name: Create Swap
-        run: |
-          SWAPFILE="/mnt/build_swapfile"
-          while true; do
-            if sudo fallocate -l 10G $SWAPFILE || sudo dd if=/dev/zero of=$SWAPFILE bs=1M count=10240 status=progress; then
-              break
-            else
-              sleep 5
-            fi
-          done
-          sudo chmod 600 $SWAPFILE && sudo mkswap $SWAPFILE && sudo swapon $SWAPFILE
-
-      - uses: actions/checkout@v4
-        with: { path: gki-clo }
-
-      - name: Setup Build Environment
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git gnupg gperf imagemagick lib32ncurses-dev lib32readline-dev lib32z1-dev libncurses-dev libsdl1.2-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev python3 clang lld llvm jq
-
-      - name: Download Clang Toolchain
-        run: |
-          mkdir -p toolchains
-          git clone --depth=1 https://github.com/ZyCromerZ/Clang.git -b main toolchains/clang
-
-      - name: Setup AnyKernel3
-        run: |
-          cd gki-clo
-          [ ! -d "anykernel" ] && git clone https://github.com/osm0sis/AnyKernel3.git anykernel || true
-
-      - name: Build Kernel
-        run: |
-          cd gki-clo
-          chmod +x build.sh
-          ./build.sh \
-            hz=${{ matrix.hz.id }} \
-            variant=${{ matrix.variant }} \
-            root=${{ matrix.root }} \
-            hardened=${{ matrix.hardened }} \
-            bypasscharging=${{ matrix.bypasscharging }} \
-            droidspaces=${{ matrix.droidspaces }} \
-            lto=full
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Kono-Ha-${{ matrix.variant == 'stock' && format('{0}-{1}', matrix.variant, matrix.hz.name) || format('{0}-{1}-{2}', matrix.variant, matrix.root, matrix.hz.name) }}-hardened${{ matrix.bypasscharging == 'on' && '-bypasscharging' || '' }}-droidspaces
-          path: gki-clo/Kono-Ha-Release
-          retention-days: 7
-
-  # NOTE: APatch/FolkPatch builds removed from automated CI to reduce job count.
-  # Use build-custom.yml (workflow_dispatch) for manual APatch/FolkPatch builds.
+  # NOTE: Some Root manager builds  removed from automated CI to reduce job count.
+  # Droidspaces and Hardened versions also removed!
+  # Use build-custom.yml (workflow_dispatch) for manual builds.
 
   release:
-    needs: [build-kernel-standard, build-kernel-standard-droidspaces, build-kernel-hardened, build-kernel-hardened-droidspaces]
+    needs: [build-kernel-standard]
     if: always()
     runs-on: ubuntu-24.04
     permissions:
@@ -457,65 +200,20 @@ jobs:
               
           std = [
               ('Stock', 'stock', 'none', False, False),
-              ('KernelSU', 'root', 'ksu', False, False),
-              ('KernelSU Next', 'root', 'ksu-next', False, False),
-              ('Sukisu', 'root', 'sukisu', False, False),
-              ('YukiSU', 'root', 'yukisu', False, False),
-              ('Resukisu', 'root', 'resukisu', False, False),
-              ('Mambosu', 'root', 'mambosu', False, False),
           ]
           susfs = [
               ('KernelSU', 'susfs', 'ksu', False, False),
               ('KernelSU Next', 'susfs', 'ksu-next', False, False),
               ('Sukisu', 'susfs', 'sukisu', False, False),
-              ('YukiSU', 'susfs', 'yukisu', False, False),
               ('Resukisu', 'susfs', 'resukisu', False, False),
-              ('Mambosu', 'susfs', 'mambosu', False, False),
-          ]
-          hard = [
-              ('Stock', 'stock', 'none', False, True),
-              ('KernelSU', 'root', 'ksu', False, True),
-              ('KernelSU Next', 'root', 'ksu-next', False, True),
-              ('Sukisu', 'root', 'sukisu', False, True),
-              ('YukiSU', 'root', 'yukisu', False, True),
-              ('Resukisu', 'root', 'resukisu', False, True),
-              ('Mambosu', 'root', 'mambosu', False, True),
-          ]
-          susfs_hard = [
-              ('KernelSU', 'susfs', 'ksu', False, True),
-              ('KernelSU Next', 'susfs', 'ksu-next', False, True),
-              ('Sukisu', 'susfs', 'sukisu', False, True),
-              ('YukiSU', 'susfs', 'yukisu', False, True),
-              ('Resukisu', 'susfs', 'resukisu', False, True),
-              ('Mambosu', 'susfs', 'mambosu', False, True),
           ]
           
           with open('release_body.md', 'w') as f:
-              f.write('Automated kernel build.\n')
+              f.write('Automated kernel build (Bypass Charging Default).\n')
               f.write(f'Commit: {sha}\n\n')
               f.write('> [!CAUTION]\n> **BACKUP your boot.img** before flashing to recover from potential bootloops or other issues.\n\n')
-              f.write(gen_table('Standard / Root Builds', std, False, False))
-              f.write(gen_table('SUSFS ඞ', susfs, False, False))
-              f.write(gen_table('Hardened', hard, False, False))
-              f.write(gen_table('SUSFS ඞ + Hardened', susfs_hard, False, False))
-              
-              f.write('---\n\n## ⚡ Bypass Charging Variants (MCA Override)\n\n')
-              f.write(gen_table('Standard / Root Builds ⚡', std, True, False))
+              f.write(gen_table('Standard Builds ⚡', std, True, False))
               f.write(gen_table('SUSFS ඞ ⚡', susfs, True, False))
-              f.write(gen_table('Hardened ⚡', hard, True, False))
-              f.write(gen_table('SUSFS ඞ + Hardened ⚡', susfs_hard, True, False))
-
-              f.write('---\n\n## 📱 Droidspaces Variants\n\n')
-              f.write(gen_table('Standard / Root Builds 📱', std, False, True))
-              f.write(gen_table('SUSFS ඞ 📱', susfs, False, True))
-              f.write(gen_table('Hardened 📱', hard, False, True))
-              f.write(gen_table('SUSFS ඞ + Hardened 📱', susfs_hard, False, True))
-
-              f.write('---\n\n## ⚡📱 Bypass Charging + Droidspaces Variants\n\n')
-              f.write(gen_table('Standard / Root Builds ⚡📱', std, True, True))
-              f.write(gen_table('SUSFS ඞ ⚡📱', susfs, True, True))
-              f.write(gen_table('Hardened ⚡📱', hard, True, True))
-              f.write(gen_table('SUSFS ඞ + Hardened ⚡📱', susfs_hard, True, True))
           "
 
       - name: Create Release
