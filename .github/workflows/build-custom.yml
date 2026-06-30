@@ -238,7 +238,7 @@ jobs:
           KERNEL_VERSION=$(grep -E '^(VERSION|PATCHLEVEL)\s*=' Makefile | awk -F'=' '{print $2}' | tr -d ' ' | paste -sd '.' -)
           echo "Detected kernel version: $KERNEL_VERSION"
           
-          PATCH_FILE="/tmp/nomount/kernel/patches/nomount_${KERNEL_VERSION}.patch"
+          PATCH_FILE=$(find /tmp/nomount -type f -name "nomount_${KERNEL_VERSION}*.patch" | head -n 1)
           
           if [ -f "$PATCH_FILE" ]; then
             echo "Applying NoMount patch: $PATCH_FILE"
