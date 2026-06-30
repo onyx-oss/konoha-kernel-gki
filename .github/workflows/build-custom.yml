@@ -244,7 +244,7 @@ jobs:
             echo "Applying NoMount patch: $PATCH_FILE"
             patch -p1 < "$PATCH_FILE"
             
-            cp -r /tmp/nomount/kernel/fs/nomount fs/
+            cp -r /tmp/nomount/kernel/src fs/nomount
             
             if ! grep -q "obj-y += nomount/" fs/Makefile; then
               echo "obj-y += nomount/" >> fs/Makefile
