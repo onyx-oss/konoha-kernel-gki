@@ -74,6 +74,14 @@ on:
           - "off"
           - "on"
         default: "on"
+      nomount:
+        description: "NoMount VFS Redirection"
+        required: true
+        type: choice
+        options:
+          - "off"
+          - "on"
+        default: "off"
       droidspaces:
         description: "Droidspaces Support"
         required: true
@@ -150,6 +158,7 @@ jobs:
           INPUT_DEBUG: ${{ inputs.debug }}
           INPUT_KERNEL_NAME: ${{ inputs.kernel_name }}
           INPUT_SPOOF_UNAME: ${{ inputs.spoof_uname }}
+          INPUT_NOMOUNT: ${{ inputs.nomount }}
         run: |
           if [ "$INPUT_HZ" == "powersave" ]; then HZ_ID=100
           elif [ "$INPUT_HZ" == "balance" ]; then HZ_ID=250
@@ -176,6 +185,7 @@ jobs:
           if [ "$INPUT_HARDENED" == "on" ]; then BUILD_NAME="${BUILD_NAME}-hardened"; fi
           if [ "$INPUT_BYPASS" == "on" ]; then BUILD_NAME="${BUILD_NAME}-bypasscharging"; fi
           if [ "$INPUT_DROIDSPACES" == "on" ]; then BUILD_NAME="${BUILD_NAME}-droidspaces"; fi
+          if [ "$INPUT_NOMOUNT" == "on" ]; then BUILD_NAME="${BUILD_NAME}-nomount"; fi
           if [ "$INPUT_HTSR" == "off" ]; then BUILD_NAME="${BUILD_NAME}-nohtsr"; fi
           if [ "$INPUT_WIFI" == "off" ]; then BUILD_NAME="${BUILD_NAME}-nowifi"; fi
           if [ "$INPUT_KGSL" == "off" ]; then BUILD_NAME="${BUILD_NAME}-nokgsl"; fi
@@ -217,6 +227,32 @@ jobs:
         run: |
           cd gki-clo
           [ ! -d "anykernel" ] && git clone https://github.com/osm0sis/AnyKernel3.git anykernel || true
+
+      - name: Setup NoMount
+        if: ${{ inputs.nomount == 'on' }}
+        run: |
+          echo "Fetching NoMount from maxsteeel repository..."
+          git clone --depth=1 https://github.com/maxsteeel/nomount.git /tmp/nomount
+          cd gki-clo
+          
+          KERNEL_VERSION=$(head -n 2 Makefile | awk -F'=' '{print $2}' | tr -d ' ' | paste -sd '.' -)
+          echo "Detected kernel version: $KERNEL_VERSION"
+          
+          PATCH_FILE="/tmp/nomount/kernel/patches/nomount_${KERNEL_VERSION}.patch"
+          
+          if [ -f "$PATCH_FILE" ]; then
+            echo "Applying NoMount patch: $PATCH_FILE"
+            patch -p1 < "$PATCH_FILE"
+            
+            cp -r /tmp/nomount/kernel/fs/nomount fs/
+            
+            if ! grep -q "obj-y += nomount/" fs/Makefile; then
+              echo "obj-y += nomount/" >> fs/Makefile
+            fi
+          else
+            echo "Warning: NoMount patch for $KERNEL_VERSION not found in the repository!"
+            exit 1
+          fi
 
       - name: Build Kernel
         env:
@@ -306,6 +342,7 @@ jobs:
             Variant: **${{ inputs.variant }}**
             HZ: **${{ inputs.hz }}**
             Root: **${{ inputs.root }}**
+            NoMount VFS: **${{ inputs.nomount }}**
             KPM: **${{ inputs.kpm }}**
             Hardened: **${{ inputs.hardened }}**
             
