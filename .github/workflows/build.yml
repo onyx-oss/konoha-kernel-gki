@@ -12,7 +12,7 @@ env:
 
 jobs:
   build-kernel-standard:
-    name: "Kono-Ha-Bomb${{ matrix.variant == 'stock' && format('{0}-{1}', matrix.variant, matrix.hz.name) || format('{0}-{1}-{2}', matrix.variant, matrix.root, matrix.hz.name) }}-standard-bypasscharging"
+    name: "${{ format('Kono-Ha-Bomb-{0}-standard-bypasscharging', matrix.variant == 'stock' && format('{0}-{1}', matrix.variant, matrix.hz.name) || format('{0}-{1}-{2}', matrix.variant, matrix.root, matrix.hz.name)) }}"
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -115,7 +115,7 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Kono-Ha-Bomb-${{ matrix.variant == 'stock' && format('{0}-{1}', matrix.variant, matrix.hz.name) || format('{0}-{1}-{2}', matrix.variant, matrix.root, matrix.hz.name) }}-bypasscharging
+          name: "${{ format('Kono-Ha-Bomb-{0}-bypasscharging', matrix.variant == 'stock' && format('{0}-{1}', matrix.variant, matrix.hz.name) || format('{0}-{1}-{2}', matrix.variant, matrix.root, matrix.hz.name)) }}"
           path: gki-clo/Kono-Ha-Release
           retention-days: 7
 
