@@ -8,6 +8,8 @@ cleanup() {
     # Revert dynamic Baseband-guard modifications to keep git tree clean
     git checkout security/Kconfig security/Makefile security/selinux/ include/linux/sched.h 2>/dev/null || true
     rm -f security/baseband-guard
+    # Revert NetHunter WiFi injection source patches
+    git checkout -- net/wireless/chan.c net/mac80211/cfg.c net/mac80211/tx.c 2>/dev/null || true
 }
 trap cleanup EXIT
 
@@ -24,6 +26,7 @@ trap cleanup EXIT
 #   lto=thin|full|none    LTO type (default: thin)
 #   autofdo=on|off        AutoFDO (default: on)
 #   droidspaces=on|off    Droidspaces support (default: off)
+#   nethunter=on|off      Kali NetHunter support (default: off)
 # ==========================================
 
 VERSION="1.1"
@@ -46,6 +49,7 @@ for arg in "$@"; do
         kgsl_exploit=*) KGSL_EXPLOIT="${arg#*=}" ;;
         data_exploit=*) DATA_EXPLOIT="${arg#*=}" ;;
         droidspaces=*) DROIDSPACES="${arg#*=}" ;;
+        nethunter=*) NETHUNTER="${arg#*=}" ;;
         debug=*) DEBUG_MODE="${arg#*=}" ;;
         kernel_name=*) KERNEL_NAME="${arg#*=}" ;;
         spoof_uname=*) SPOOF_UNAME="${arg#*=}" ;;
@@ -77,6 +81,7 @@ if [ "$#" -gt 0 ]; then
     [ -z "$LTO_TYPE" ] && LTO_TYPE="thin"
     [ -z "$BYPASSCHARGING" ] && BYPASSCHARGING="off"
     [ -z "$DROIDSPACES" ] && DROIDSPACES="off"
+    [ -z "$NETHUNTER" ] && NETHUNTER="off"
     [ -z "$DEBUG_MODE" ] && DEBUG_MODE="off"
 else
     NON_INTERACTIVE=0
@@ -221,7 +226,18 @@ if [ -z "$DROIDSPACES" ]; then
     [ "${_c:-1}" == "2" ] && DROIDSPACES="on" || DROIDSPACES="off"
 fi
 
-# 9. Debug Mode
+# 9. NetHunter
+if [ -z "$NETHUNTER" ]; then
+    echo "=========================================="
+    echo "         Kali NetHunter Support            "
+    echo "=========================================="
+    echo " 1) OFF (default)"
+    echo " 2) ON  (WiFi injection, HID, USB adapters)"
+    read -p "Enter choice [1-2] (default 1): " _c
+    [ "${_c:-1}" == "2" ] && NETHUNTER="on" || NETHUNTER="off"
+fi
+
+# 10. Debug Mode
 if [ -z "$DEBUG_MODE" ]; then
     echo "=========================================="
     echo "               Debug Mode                 "
@@ -384,6 +400,7 @@ echo " WiFi Exploit: ${WIFI_EXPLOIT^^}"
 echo " KGSL Exploit: ${KGSL_EXPLOIT^^}"
 echo " Data Exploit: ${DATA_EXPLOIT^^}"
 echo " Debug Mode:   ${DEBUG_MODE^^}"
+echo " NetHunter: ${NETHUNTER^^}"
 [ "$VARIANT" != "stock" ] && echo " Variant:   ${VARIANT} ($REPO_NAME)" || echo " Variant:   stock"
 echo " LTO:       ${LTO_TYPE^^}"
 if [ "$VARIANT" != "stock" ]; then
@@ -690,6 +707,11 @@ if [ "$DROIDSPACES" == "on" ]; then
     ./setup_droidspaces.sh "$OUT_DIR"
 fi
 
+# Setup NetHunter Support
+if [ "$NETHUNTER" == "on" ]; then
+    ./nethunter_patch.sh "$OUT_DIR"
+fi
+
 # Single olddefconfig to finalize all changes
 make O="$OUT_DIR" CC=clang LLVM=1 LLVM_IAS=1 olddefconfig || exit 1
 
@@ -793,6 +815,7 @@ fi
 [ "$HARDENED" == "on" ] && ZIP_SUFFIX="${ZIP_SUFFIX}-hardened"
 [ "$BYPASSCHARGING" == "on" ] && ZIP_SUFFIX="${ZIP_SUFFIX}-bypasscharging"
 [ "$DROIDSPACES" == "on" ] && ZIP_SUFFIX="${ZIP_SUFFIX}-droidspaces"
+[ "$NETHUNTER" == "on" ] && ZIP_SUFFIX="${ZIP_SUFFIX}-nethunter"
 [ "$HTSR" == "off" ] && ZIP_SUFFIX="${ZIP_SUFFIX}-nohtsr"
 [ "$WIFI_EXPLOIT" == "off" ] && ZIP_SUFFIX="${ZIP_SUFFIX}-nowifi"
 [ "$KGSL_EXPLOIT" == "off" ] && ZIP_SUFFIX="${ZIP_SUFFIX}-nokgsl"

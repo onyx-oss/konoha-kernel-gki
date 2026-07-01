@@ -1,0 +1,91 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: IRedDragonICY <hendik.suwoto@gmail.com>
+Date: Sun, 22 Jun 2026 10:30:00 +0700
+Subject: [PATCH] mac80211/cfg80211: add WiFi injection support for NetHunter
+
+Adapted from Kali NetHunter injection patches for Linux 6.6 GKI.
+
+Changes:
+1. cfg.c: Allow monitor mode channel change even when normal
+   virtual interfaces are present (needed for injection while
+   connected to WiFi)
+2. chan.c: Remove cfg80211_has_monitors_only restriction for
+   set_monitor_channel
+3. tx.c: Improve injection packet handling:
+   - Skip sequence number renumbering for injected packets
+   - Set NO_ACK flag on injected packets (ACK should be
+     handled by the injecting application)
+   - Don't overwrite QoS header in monitor mode
+
+Signed-off-by: IRedDragonICY <hendik.suwoto@gmail.com>
+---
+ net/mac80211/cfg.c  |  4 +++-
+ net/mac80211/tx.c   | 16 +++++++++++-----
+ net/wireless/chan.c |  4 ++--
+ 3 files changed, 16 insertions(+), 8 deletions(-)
+
+diff --git a/net/mac80211/cfg.c b/net/mac80211/cfg.c
+index 1234567..abcdefg 100644
+--- a/net/mac80211/cfg.c
++++ b/net/mac80211/cfg.c
+@@ -931,7 +931,9 @@ static int ieee80211_set_monitor_channel(struct wiphy *wiphy,
+ 	} else {
+ 		mutex_lock(&local->mtx);
+-		if (local->open_count == local->monitors) {
++		/* NetHunter: Allow channel change even if a normal virtual
++		 * interface is present, needed for packet injection */
++		if (local->open_count == local->monitors || true) {
+ 			local->_oper_chandef = *chandef;
+ 			ieee80211_hw_config(local, 0);
+ 		}
+diff --git a/net/mac80211/tx.c b/net/mac80211/tx.c
+index 1234567..abcdefg 100644
+--- a/net/mac80211/tx.c
++++ b/net/mac80211/tx.c
+@@ -836,11 +836,15 @@ ieee80211_tx_h_sequence(struct ieee80211_tx_data *tx)
+ 	/*
+ 	 * Packet injection may want to control the sequence
+-	 * number, if we have no matching interface then we
+-	 * neither assign one ourselves nor ask the driver to.
++	 * number, so if an injected packet is found, skip
++	 * renumbering it. Also make the packet NO_ACK to avoid
++	 * excessive retries (ACKing and retrying should be
++	 * handled by the injecting application).
++	 * FIXME This may break hostapd and some other injectors.
++	 * This should be done using a radiotap flag.
+ 	 */
+-	if (unlikely(info->control.vif->type == NL80211_IFTYPE_MONITOR))
++	if (unlikely((info->flags & IEEE80211_TX_CTL_INJECTED) &&
++	   !(tx->sdata->u.mntr.flags & MONITOR_FLAG_COOK_FRAMES))) {
++		if (!ieee80211_has_morefrags(hdr->frame_control))
++			info->flags |= IEEE80211_TX_CTL_NO_ACK;
+ 		return TX_CONTINUE;
++	}
+ 
+ 	if (unlikely(ieee80211_is_ctl(hdr->frame_control)))
+@@ -2074,7 +2078,9 @@ void ieee80211_xmit(struct ieee80211_sub_if_data *sdata,
+ 	}
+ 
+-	ieee80211_set_qos_hdr(sdata, skb);
++	/* NetHunter: Don't overwrite QoS header in monitor mode */
++	if (likely(info->control.vif->type != NL80211_IFTYPE_MONITOR))
++		ieee80211_set_qos_hdr(sdata, skb);
+ 	ieee80211_tx(sdata, sta, skb, false);
+ }
+ 
+diff --git a/net/wireless/chan.c b/net/wireless/chan.c
+index 1234567..abcdefg 100644
+--- a/net/wireless/chan.c
++++ b/net/wireless/chan.c
+@@ -1473,8 +1473,8 @@ int cfg80211_set_monitor_channel(struct cfg80211_registered_device *rdev,
+ 	if (!rdev->ops->set_monitor_channel)
+ 		return -EOPNOTSUPP;
+-	if (!cfg80211_has_monitors_only(rdev))
+-		return -EBUSY;
++	/* NetHunter: Allow channel change even if there is another normal
++	 * virtual interface using the device */
+ 
+ 	return rdev_set_monitor_channel(rdev, chandef);
+ }
+-- 
+2.43.0
